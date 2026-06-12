@@ -1,5 +1,6 @@
 'use client'
-import { LeadRow, ColMap } from './Dashboard'
+import { ColMap } from './Dashboard'
+import { LeadRow } from '@/lib/dataUtils'
 import { getVal, norm, colorForStatus } from '@/lib/dataUtils'
 
 interface Props { data: LeadRow[]; cols: ColMap }
