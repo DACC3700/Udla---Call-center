@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import Script from 'next/script'
-import { LeadRow, ColMap } from './Dashboard'
-import { getVal, parseDate, fmtMonth, colorForStatus, norm, PALETTE } from '@/lib/dataUtils'
+import { ColMap } from './Dashboard'
+import { LeadRow, getVal, parseDate, fmtMonth, colorForStatus, norm, PALETTE } from '@/lib/dataUtils'
 
 declare global {
   interface Window {
