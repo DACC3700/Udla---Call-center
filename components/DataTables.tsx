@@ -1,113 +1,145 @@
 'use client'
 import { ColMap } from './Dashboard'
 import { LeadRow } from '@/lib/dataUtils'
-import { getVal, norm, colorForStatus } from '@/lib/dataUtils'
+import { getVal, norm } from '@/lib/dataUtils'
 
 interface Props { data: LeadRow[]; cols: ColMap }
 
 const ORANGE = '#F4721E'
 
-export default function DataTables({ data, cols }: Props) {
-  // ── Carrera pivot ──────────────────────────────────────────────────────────
-  const carreraPivot: Record<string, { total: number; mat: number; proceso: number; sin: number }> = {}
-  data.forEach(row => {
-    const c = getVal(row, 'carrera', cols) || 'Sin carrera'
-    const e = norm(getVal(row, 'estado', cols) || 'Sin estado')
-    if (!carreraPivot[c]) carreraPivot[c] = { total: 0, mat: 0, proceso: 0, sin: 0 }
-    carreraPivot[c].total++
-    if (e.includes('matricul')) carreraPivot[c].mat++
-    else if (e.includes('proceso') || e.includes('interesad')) carreraPivot[c].proceso++
-    else carreraPivot[c].sin++
-  })
+function pct(n: number, d: number) { return d > 0 ? (n / d * 100).toFixed(1) : '0.0' }
+function Bar({ p }: { p: string }) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-[90px]">
+      <div className="progress-bar flex-1"><div className="progress-fill" style={{ width: `${p}%` }} /></div>
+      <span className="text-xs font-bold w-10 text-right">{p}%</span>
+    </div>
+  )
+}
 
-  // ── Consultor pivot ────────────────────────────────────────────────────────
-  const consultorPivot: Record<string, { total: number; mat: number; proceso: number; citas: number }> = {}
+function Badge({ n, color }: { n: number; color: string }) {
+  return <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: color + '22', color }}>{n}</span>
+}
+
+export default function DataTables({ data, cols }: Props) {
+
+  // ── Pivot consultores ───────────────────────────────────────────────────
+  const cPivot: Record<string, { total: number; mat: number; pipeline: number; nc: number; perdidos: number; llamadas: number; llamCnt: number }> = {}
   data.forEach(row => {
     const c = getVal(row, 'consultor', cols) || 'Sin asignar'
     const e = norm(getVal(row, 'estado', cols) || '')
-    if (!consultorPivot[c]) consultorPivot[c] = { total: 0, mat: 0, proceso: 0, citas: 0 }
-    consultorPivot[c].total++
-    if (e.includes('matricul')) consultorPivot[c].mat++
-    if (e.includes('proceso')) consultorPivot[c].proceso++
-    const cc = cols['citas']
-    if (cc) { const v = parseFloat(String(row[cc] ?? '')); if (!isNaN(v)) consultorPivot[c].citas += v }
-    else consultorPivot[c].citas++
+    if (!cPivot[c]) cPivot[c] = { total: 0, mat: 0, pipeline: 0, nc: 0, perdidos: 0, llamadas: 0, llamCnt: 0 }
+    cPivot[c].total++
+    if (e.includes('matriculad'))                                                               cPivot[c].mat++
+    else if (e.includes('indeciso') || e.includes('volver a llamar') || e.includes('viene') || e.includes('devolver llamado')) cPivot[c].pipeline++
+    else if (e.includes('no contactado') || e.includes('no contesta'))                         cPivot[c].nc++
+    else                                                                                        cPivot[c].perdidos++
+    const lc = cols['llamadas']
+    if (lc) { const v = parseFloat(String(row[lc] ?? '')); if (!isNaN(v)) { cPivot[c].llamadas += v; cPivot[c].llamCnt++ } }
   })
 
-  const pct = (mat: number, total: number) => total > 0 ? ((mat / total) * 100).toFixed(1) : '0.0'
+  // ── Pivot carreras ──────────────────────────────────────────────────────
+  const rPivot: Record<string, { total: number; mat: number; pipeline: number; nc: number }> = {}
+  data.forEach(row => {
+    const c = getVal(row, 'carrera', cols) || 'Sin carrera'
+    const e = norm(getVal(row, 'estado', cols) || '')
+    if (!rPivot[c]) rPivot[c] = { total: 0, mat: 0, pipeline: 0, nc: 0 }
+    rPivot[c].total++
+    if (e.includes('matriculad')) rPivot[c].mat++
+    else if (e.includes('indeciso') || e.includes('volver a llamar') || e.includes('viene') || e.includes('devolver llamado')) rPivot[c].pipeline++
+    else if (e.includes('no contactado') || e.includes('no contesta')) rPivot[c].nc++
+  })
+
+  const consultores = Object.entries(cPivot).sort((a, b) => b[1].mat - a[1].mat)
+  const carreras    = Object.entries(rPivot).sort((a, b) => b[1].total - a[1].total)
 
   return (
     <div className="space-y-4">
-      {/* Tabla Carrera */}
+
+      {/* ── Ranking Consultores ─────────────────────────────────────────── */}
       <div className="card p-5">
-        <div className="section-title mb-3">Tabla: Carrera vs Estado Matrícula y % Conversión</div>
+        <div className="section-title mb-1">Ranking Consultores — Desempeño Individual</div>
+        <p className="text-xs text-gray-400 mb-3">Ordenado por matrículas · Avg. llamadas calculado sobre citas con dato disponible</p>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Carrera</th><th>Leads</th><th>Matriculados</th>
-                <th>% Conversión</th><th>En Proceso</th><th>Sin Matrícula</th>
+                <th>#</th>
+                <th>Consultor</th>
+                <th>Total Citas</th>
+                <th>Matriculadas</th>
+                <th>% Conv.</th>
+                <th>Pipeline</th>
+                <th>No Contact.</th>
+                <th>Perdidos</th>
+                <th>Avg Llamadas</th>
               </tr>
             </thead>
             <tbody>
-              {Object.keys(carreraPivot).length === 0 ? (
-                <tr><td colSpan={6} className="text-center text-gray-400 py-6">Sin datos</td></tr>
-              ) : Object.entries(carreraPivot)
-                  .sort((a, b) => b[1].total - a[1].total)
-                  .map(([car, v]) => {
-                    const p = pct(v.mat, v.total)
-                    return (
-                      <tr key={car}>
-                        <td className="font-medium">{car}</td>
-                        <td>{v.total}</td>
-                        <td><span className="font-bold" style={{ color: ORANGE }}>{v.mat}</span></td>
-                        <td>
-                          <div className="flex items-center gap-2">
-                            <div className="progress-bar" style={{ width: 80 }}>
-                              <div className="progress-fill" style={{ width: `${p}%` }} />
-                            </div>
-                            <span className="text-xs font-bold">{p}%</span>
-                          </div>
-                        </td>
-                        <td>{v.proceso}</td>
-                        <td>{v.sin}</td>
-                      </tr>
-                    )
-                  })}
+              {consultores.length === 0 ? (
+                <tr><td colSpan={9} className="text-center text-gray-400 py-6">Sin datos</td></tr>
+              ) : consultores.map(([name, v], i) => {
+                const p = pct(v.mat, v.total)
+                const avgL = v.llamCnt > 0 ? (v.llamadas / v.llamCnt).toFixed(1) : '—'
+                const isMvp = i < 3
+                return (
+                  <tr key={name}>
+                    <td className="font-bold text-center" style={{ color: i === 0 ? '#F4721E' : i === 1 ? '#9CA3AF' : i === 2 ? '#D97706' : undefined }}>
+                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                    </td>
+                    <td className="font-medium">{isMvp ? <strong>{name}</strong> : name}</td>
+                    <td>{v.total}</td>
+                    <td><Badge n={v.mat} color={ORANGE} /></td>
+                    <td><Bar p={p} /></td>
+                    <td><Badge n={v.pipeline} color="#F59E0B" /></td>
+                    <td><Badge n={v.nc} color="#9CA3AF" /></td>
+                    <td><Badge n={v.perdidos} color="#EF4444" /></td>
+                    <td className="text-xs font-bold text-blue-600">{avgL}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Tabla Consultor */}
+      {/* ── Top Carreras ────────────────────────────────────────────────── */}
       <div className="card p-5">
-        <div className="section-title mb-3">Tabla: Leads por Consultor vs Estado Matrícula</div>
+        <div className="section-title mb-1">Ranking Carreras — Demanda y Conversión</div>
+        <p className="text-xs text-gray-400 mb-3">Ordenado por volumen total de citas · % conversión = matriculadas / total</p>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Consultor</th><th>Leads</th><th>Matriculados</th>
-                <th>% Conv.</th><th>Citas</th><th>En Proceso</th>
+                <th>#</th>
+                <th>Carrera / Programa</th>
+                <th>Total Citas</th>
+                <th>Matriculadas</th>
+                <th>% Conv.</th>
+                <th>Pipeline</th>
+                <th>No Contactado</th>
+                <th>Otros</th>
               </tr>
             </thead>
             <tbody>
-              {Object.keys(consultorPivot).length === 0 ? (
-                <tr><td colSpan={6} className="text-center text-gray-400 py-6">Sin datos</td></tr>
-              ) : Object.entries(consultorPivot)
-                  .sort((a, b) => b[1].total - a[1].total)
-                  .map(([cons, v]) => {
-                    const p = pct(v.mat, v.total)
-                    return (
-                      <tr key={cons}>
-                        <td className="font-medium">{cons} {parseFloat(p) >= 20 ? '⭐' : ''}</td>
-                        <td>{v.total}</td>
-                        <td><span className="font-bold" style={{ color: ORANGE }}>{v.mat}</span></td>
-                        <td><span className="font-bold">{p}%</span></td>
-                        <td>{v.citas}</td>
-                        <td>{v.proceso}</td>
-                      </tr>
-                    )
-                  })}
+              {carreras.length === 0 ? (
+                <tr><td colSpan={8} className="text-center text-gray-400 py-6">Sin datos</td></tr>
+              ) : carreras.map(([car, v], i) => {
+                const p = pct(v.mat, v.total)
+                const otros = v.total - v.mat - v.pipeline - v.nc
+                return (
+                  <tr key={car}>
+                    <td className="font-bold text-center text-gray-400 text-xs">{i + 1}</td>
+                    <td className="font-medium text-xs">{car}</td>
+                    <td className="font-bold">{v.total}</td>
+                    <td><Badge n={v.mat} color={ORANGE} /></td>
+                    <td><Bar p={p} /></td>
+                    <td><Badge n={v.pipeline} color="#F59E0B" /></td>
+                    <td><Badge n={v.nc} color="#9CA3AF" /></td>
+                    <td className="text-xs text-gray-400">{otros > 0 ? otros : '—'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
