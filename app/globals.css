@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --udla-gray: #2B2D42;
+  --udla-gray-mid: #3D3F57;
+  --udla-gray-light: #F0F0F5;
+  --udla-orange: #F4721E;
+  --udla-orange-dark: #D45E0A;
+  --udla-orange-light: #FFF0E6;
+}
+
+* { font-family: 'Inter', sans-serif; }
+body { background: var(--udla-gray-light); color: var(--udla-gray); }
+
+/* ── Cards ── */
+.card {
+  @apply bg-white rounded-2xl border;
+  border-color: rgba(244,114,30,0.08);
+  box-shadow: 0 2px 12px rgba(43,45,66,0.08);
+  transition: box-shadow .2s;
+}
+.card:hover { box-shadow: 0 6px 24px rgba(244,114,30,0.14); }
+.kpi-card { border-left: 4px solid var(--udla-orange); }
+
+/* ── Typography ── */
+.kpi-value { font-size: 2.2rem; font-weight: 800; color: var(--udla-gray); line-height: 1; }
+.kpi-label { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #8890A4; }
+.section-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--udla-orange); }
+
+/* ── Progress bar ── */
+.progress-bar { height: 6px; border-radius: 3px; background: #EEEEF5; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--udla-orange), var(--udla-orange-dark)); transition: width .6s ease; }
+
+/* ── Upload zone ── */
+.upload-zone {
+  border: 2.5px dashed var(--udla-orange);
+  background: var(--udla-orange-light);
+  border-radius: 12px;
+  transition: background .2s, border-color .2s;
+  cursor: pointer;
+}
+.upload-zone:hover { background: #FFE5CC; border-color: var(--udla-orange-dark); }
+.upload-zone.drag-over { background: #FFD9B3; border-color: var(--udla-orange-dark); }
+
+/* ── Tables ── */
+.data-table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+.data-table th { background: var(--udla-gray); color: white; padding: 8px 12px; text-align: left; font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
+.data-table td { padding: 7px 12px; border-bottom: 1px solid #F0F0F5; color: var(--udla-gray); }
+.data-table tr:hover td { background: var(--udla-orange-light); }
+
+/* ── Supabase panel ── */
+.sb-panel { background: #1C1C2E; border-radius: 14px; border: 1px solid #333355; }
+.sb-input { background: #0F0F1A; border: 1.5px solid #333355; border-radius: 8px; padding: 8px 12px; font-size: .8rem; color: #E2E8F0; width: 100%; font-family: monospace; transition: border-color .15s; }
+.sb-input:focus { outline: none; border-color: var(--udla-orange); }
+.sb-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748B; margin-bottom: 4px; }
+
+/* ── Filter select ── */
+.filter-select { border: 1.5px solid #D1D5DB; border-radius: 8px; padding: 6px 10px; font-size: .8rem; background: white; color: var(--udla-gray); cursor: pointer; transition: border-color .15s; }
+.filter-select:focus { outline: none; border-color: var(--udla-orange); }
+
+/* ── Toast ── */
+#toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; background: var(--udla-gray); color: white; padding: 12px 20px; border-radius: 10px; font-size: .84rem; font-weight: 600; border-left: 4px solid var(--udla-orange); box-shadow: 0 8px 24px rgba(0,0,0,.25); transform: translateY(80px); opacity: 0; transition: transform .3s, opacity .3s; }
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── Header ── */
+.header-bar { background: linear-gradient(135deg, #2B2D42 0%, #3D3F57 60%, #F4721E 100%); }
+
+/* ── Status dot ── */
+.sb-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.sb-status-dot.connected { background: #22C55E; box-shadow: 0 0 6px #22C55E; }
+.sb-status-dot.disconnected { background: #6B7280; }
+.sb-status-dot.error { background: #EF4444; box-shadow: 0 0 6px #EF4444; }
+
+/* ── Chart max height ── */
+canvas { max-height: 280px !important; }
+@media (max-width: 768px) {
+  .kpi-value { font-size: 1.6rem; }
+  canvas { max-height: 220px !important; }
+}
