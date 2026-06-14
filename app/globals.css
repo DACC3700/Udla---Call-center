@@ -75,8 +75,8 @@ body { background: var(--udla-gray-light); color: var(--udla-gray); }
 .sb-status-dot.error { background: #EF4444; box-shadow: 0 0 6px #EF4444; }
 
 /* ── Chart max height ── */
-canvas { max-height: 280px !important; }
+canvas { max-height: 480px !important; }
 @media (max-width: 768px) {
   .kpi-value { font-size: 1.6rem; }
-  canvas { max-height: 220px !important; }
+  canvas { max-height: 320px !important; }
 }

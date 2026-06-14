@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Dashboard CRM — Universidad de las Américas',
-  description: 'Dashboard de admisiones y call center para UDLA',
+  title: 'Dashboards UDLA — Call Center & CRM Admisiones',
+  description: 'Dashboard Ejecutivo Call Center + Dashboard CRM Citas — Universidad de las Américas',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

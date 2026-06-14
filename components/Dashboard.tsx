@@ -4,9 +4,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import * as XLSX from 'xlsx'
 import { getSupabaseClient } from '@/lib/supabase'
 import {
-  LeadRow, mapColumns, getVal, parseDate, fmtMonth,
-  generateDemoData, norm,
+  LeadRow, mapColumns, getVal, parseDate,
+  norm,
 } from '@/lib/dataUtils'
+import {
+  mapCCColumns, generateCCDemoData, CCColMap,
+} from '@/lib/ccDataUtils'
 import Header from './Header'
 import KpiCards from './KpiCards'
 import SupabasePanel from './SupabasePanel'
@@ -14,6 +17,7 @@ import UploadZone from './UploadZone'
 import ChartSection from './ChartSection'
 import DataTables from './DataTables'
 import Toast from './Toast'
+import CCDashboard from './cc/CCDashboard'
 
 export type Filters = {
   estado:    string
@@ -28,9 +32,43 @@ export type Filters = {
 export type ColMap = Record<string, string | null>
 export type SbStatus = 'connected' | 'disconnected' | 'error'
 
+type ActiveDash = 'cc' | 'legacy'
+
+// ── Tab switcher ──────────────────────────────────────────────────────────────
+function DashboardTabs({ active, onSwitch }: { active: ActiveDash; onSwitch: (d: ActiveDash) => void }) {
+  const tabs: { id: ActiveDash; label: string; sub: string }[] = [
+    { id: 'cc',     label: '📞 Dashboard Call Center',          sub: 'Admisión Directa UDLA' },
+    { id: 'legacy', label: '📊 Dashboard CRM Citas',            sub: 'Análisis de gestión de citas' },
+  ]
+  return (
+    <div className="max-w-screen-2xl mx-auto px-4 pt-4">
+      <div className="flex gap-2">
+        {tabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => onSwitch(t.id)}
+            className={`flex flex-col px-5 py-3 rounded-xl text-left transition-all font-semibold ${
+              active === t.id ? 'text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50 border border-gray-200'
+            }`}
+            style={active === t.id ? { background: '#2B2D42' } : {}}
+          >
+            <span className="text-sm font-bold">{t.label}</span>
+            <span className={`text-xs mt-0.5 ${active === t.id ? 'text-white/60' : 'text-gray-400'}`}>{t.sub}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const [activeDash, setActiveDash] = useState<ActiveDash>('cc')
+
+  // ── Estado compartido de datos ────────────────────────────────────────────
   const [rawData,        setRawData]        = useState<LeadRow[]>([])
   const [cols,           setCols]           = useState<ColMap>({})
+  const [ccCols,         setCCCols]         = useState<CCColMap>({})
   const [filters,        setFilters]        = useState<Filters>({
     estado: 'all', consultor: 'all', carrera: 'all',
     campus: 'all', equipo: 'all', mes: 'all', periodo: 'all',
@@ -75,8 +113,10 @@ export default function Dashboard() {
   function ingestData(data: LeadRow[]) {
     if (!data.length) return
     const headers = Object.keys(data[0])
-    const newCols = mapColumns(headers)
+    const newCols   = mapColumns(headers)
+    const newCCCols = mapCCColumns(headers)
     setCols(newCols)
+    setCCCols(newCCCols)
     setRawData(data)
 
     const sets: Record<string, Set<string>> = {
@@ -89,7 +129,6 @@ export default function Dashboard() {
         if (v) sets[k].add(v)
       }
     })
-    // Ordenar meses en orden cronológico si es posible
     const MES_ORDER = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
     const sortedMeses = [...sets.mes].sort((a, b) => {
       const ai = MES_ORDER.indexOf(norm(a)), bi = MES_ORDER.indexOf(norm(b))
@@ -103,17 +142,15 @@ export default function Dashboard() {
       equipo:    [...sets.equipo].sort(),
       mes:       sortedMeses,
     })
-    const det = Object.entries(newCols).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ')
+    const det = Object.entries(newCCCols).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ')
     setColHint(det)
     setLastUpdate(new Date().toLocaleTimeString())
   }
 
-  // ── Carga de archivo ──────────────────────────────────────────────────────
   function processFile(file: File) {
     const reader = new FileReader()
     reader.onload = (e) => {
       const wb = XLSX.read(e.target?.result as string, { type: 'binary', cellDates: true })
-      // Preferir "Hoja1" si existe (formato UDLA Call Center)
       const sheetName = wb.SheetNames.includes('Hoja1') ? 'Hoja1' : wb.SheetNames[0]
       const ws = wb.Sheets[sheetName]
       const json = XLSX.utils.sheet_to_json<LeadRow>(ws, { defval: '' })
@@ -124,21 +161,29 @@ export default function Dashboard() {
     reader.readAsBinaryString(file)
   }
 
-  // ── Supabase ──────────────────────────────────────────────────────────────
   async function connectSupabase(url: string, key: string, table: string) {
     const client = getSupabaseClient(url, key)
     return loadFromSupabase(client, table)
   }
 
-  async function loadFromSupabase(client: ReturnType<typeof getSupabaseClient> | null, table: string, limit = 10000) {
+  async function loadFromSupabase(client: ReturnType<typeof getSupabaseClient> | null, table: string) {
     if (!client) return { ok: false, msg: 'No hay cliente' }
-    const { data, error } = await client.from(table).select('*').limit(limit)
-    if (error)       { setSbStatus('error'); return { ok: false, msg: error.message } }
-    if (!data?.length) { setSbStatus('error'); return { ok: false, msg: 'Tabla vacía' } }
-    ingestData(data as LeadRow[])
+    const PAGE = 1000
+    const allData: LeadRow[] = []
+    let from = 0
+    while (true) {
+      const { data, error } = await client.from(table).select('*').range(from, from + PAGE - 1)
+      if (error) { setSbStatus('error'); return { ok: false, msg: error.message } }
+      if (!data?.length) break
+      allData.push(...(data as LeadRow[]))
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    if (!allData.length) { setSbStatus('error'); return { ok: false, msg: 'Tabla vacía' } }
+    ingestData(allData)
     setSbStatus('connected')
-    showToast(`✓ ${data.length} registros desde Supabase`)
-    return { ok: true, msg: `${data.length} filas` }
+    showToast(`✓ ${allData.length} registros desde Supabase`)
+    return { ok: true, msg: `${allData.length} filas` }
   }
 
   async function importExcelToSupabase(file: File, client: ReturnType<typeof getSupabaseClient>, table: string) {
@@ -150,32 +195,21 @@ export default function Dashboard() {
         const ws = wb.Sheets[sheetName]
         const rows = XLSX.utils.sheet_to_json<LeadRow>(ws, { defval: '' })
         if (!rows.length) { resolve({ inserted: 0, error: 'Archivo vacío' }); return }
-
-        // Normalizar nombres de columna a snake_case limpio para Supabase
         const UDLA_COL_MAP: Record<string, string> = {
-          'rut':                                                    'rut',
-          'asunto':                                                 'asunto',
-          'marketing5':                                             'equipo',
-          'cont. llamadas (referente a) (contacto)':               'cont_llamadas',
-          'fecha de cración':                                       'fecha_creacion',
-          'fecha de creacion':                                      'fecha_creacion',
-          'fecha compromiso':                                       'fecha_compromiso',
-          'primer sub origen (referente a) (contacto)':            'primer_sub_origen',
-          'teléfono móvil (referente a) (contacto)':               'telefono',
-          'propietario':                                            'propietario',
-          'campus':                                                 'campus',
-          'régimen interés 1':                                      'regimen',
-          'carrera de interés':                                     'carrera',
-          'llamada a':                                              'consultor',
-          'propietario (referente a) (contacto)':                  'propietario_contacto',
-          'ultimo interés cierre (referente a) (contacto)':        'ultimo_interes_cierre',
-          'seguimiento cierre':                                     'seguimiento_cierre',
-          'interés':                                                'interes',
-          'interés cierre':                                         'interes_cierre',
-          'prioridad':                                              'prioridad',
-          'semana':                                                 'semana',
-          'mes':                                                    'mes',
-          'banner':                                                 'banner',
+          'rut': 'rut', 'asunto': 'asunto', 'marketing5': 'equipo',
+          'cont. llamadas (referente a) (contacto)': 'cont_llamadas',
+          'fecha de cración': 'fecha_creacion', 'fecha de creacion': 'fecha_creacion',
+          'fecha compromiso': 'fecha_compromiso',
+          'primer sub origen (referente a) (contacto)': 'primer_sub_origen',
+          'teléfono móvil (referente a) (contacto)': 'telefono',
+          'propietario': 'propietario', 'campus': 'campus',
+          'régimen interés 1': 'regimen', 'carrera de interés': 'carrera',
+          'llamada a': 'consultor',
+          'propietario (referente a) (contacto)': 'propietario_contacto',
+          'ultimo interés cierre (referente a) (contacto)': 'ultimo_interes_cierre',
+          'seguimiento cierre': 'seguimiento_cierre',
+          'interés': 'interes', 'interés cierre': 'interes_cierre',
+          'prioridad': 'prioridad', 'semana': 'semana', 'mes': 'mes', 'banner': 'banner',
         }
         const normalised = rows.map(r => {
           const o: LeadRow = {}
@@ -186,7 +220,6 @@ export default function Dashboard() {
           }
           return o
         })
-
         const CHUNK = 500; let inserted = 0
         for (let i = 0; i < normalised.length; i += CHUNK) {
           const { error } = await client.from(table).insert(normalised.slice(i, i + CHUNK))
@@ -206,8 +239,9 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    ingestData(generateDemoData())
-    showToast('📊 Datos demo — importa el Excel o conecta Supabase')
+    // Cargar demo data para Call Center por defecto
+    ingestData(generateCCDemoData())
+    showToast('📊 Datos demo Call Center — importa el Excel o conecta Supabase')
     const url   = localStorage.getItem('udla_sb_url')
     const key   = localStorage.getItem('udla_sb_key')
     const table = localStorage.getItem('udla_sb_table') || 'citas_callcenter'
@@ -242,14 +276,25 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="max-w-screen-2xl mx-auto px-4 pt-4">
+      {/* Tab switcher */}
+      <DashboardTabs active={activeDash} onSwitch={setActiveDash} />
+
+      <div className="max-w-screen-2xl mx-auto px-4 pt-3">
         <UploadZone onFile={processFile} colHint={colHint} />
       </div>
 
-      <div className="max-w-screen-2xl mx-auto px-4 pb-10 mt-5 space-y-4">
-        <KpiCards   data={filteredData} cols={cols} rawTotal={rawData.length} />
-        <ChartSection data={filteredData} cols={cols} />
-        <DataTables   data={filteredData} cols={cols} />
+      <div className="max-w-screen-2xl mx-auto px-4 pb-10 mt-4 space-y-4">
+        {activeDash === 'cc' ? (
+          /* ── Dashboard 1: Call Center Admisión Directa ── */
+          <CCDashboard data={rawData} cols={ccCols} />
+        ) : (
+          /* ── Dashboard 2: CRM Citas (legacy) ── */
+          <>
+            <KpiCards   data={filteredData} cols={cols} rawTotal={rawData.length} />
+            <ChartSection data={filteredData} cols={cols} />
+            <DataTables   data={filteredData} cols={cols} />
+          </>
+        )}
       </div>
 
       {toast && <Toast msg={toast.msg} err={toast.err} />}
