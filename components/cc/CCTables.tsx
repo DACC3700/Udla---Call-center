@@ -48,31 +48,34 @@ export function EjecutivoTable({ data }: { data: EjecutivoStats[] }) {
           <thead>
             <tr>
               <th>#</th>
-              <th>Ejecutivo</th>
+              <th>Ejecutivo / Agente</th>
               <th>Recorridos</th>
               <th>Contactados</th>
-              <th>Citas</th>
-              <th>Matrículas</th>
+              <th>Citas (Viene)</th>
+              <th>Afluencia (A+M+MC)</th>
+              <th>Matrículas (M+MC)</th>
               <th>Contactab. %</th>
               <th>Cont→Cita %</th>
-              <th>Cita→Mat %</th>
-              <th>Avg Intentos</th>
+              <th>Cita→AF %</th>
+              <th>AF→Mat %</th>
+              <th>Conv Final %</th>
               <th>Estado</th>
             </tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
-              <tr><td colSpan={11} className="text-center text-gray-400 py-6">Sin datos</td></tr>
+              <tr><td colSpan={13} className="text-center text-gray-400 py-6">Sin datos</td></tr>
             ) : data.map((e, i) => (
               <tr key={e.nombre}>
                 <td className="font-bold text-center text-sm">
                   {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
                 </td>
                 <td className="font-medium text-sm">{i < 3 ? <strong>{e.nombre}</strong> : e.nombre}</td>
-                <td className="font-bold">{e.recorridos}</td>
+                <td className="font-bold">{e.recorridos.toLocaleString('es-CL')}</td>
                 <td><Badge n={e.contactados} color="#22C55E" /></td>
                 <td><Badge n={e.citas}       color={ORANGE} /></td>
-                <td><Badge n={e.matriculas}  color="#7C3AED" /></td>
+                <td><Badge n={e.afluencias}  color="#7C3AED" /></td>
+                <td><Badge n={e.matriculas}  color="#16A34A" /></td>
                 <td>
                   <div className="flex items-center gap-1">
                     <Sem s={e.semCont} />
@@ -85,17 +88,18 @@ export function EjecutivoTable({ data }: { data: EjecutivoStats[] }) {
                     <Bar value={e.convContCita} color={ORANGE} />
                   </div>
                 </td>
+                <td><Bar value={e.convCitaAf}  color="#7C3AED" /></td>
                 <td>
                   <div className="flex items-center gap-1">
                     <Sem s={e.semMat} />
-                    <Bar value={e.convCitaMat} color="#7C3AED" />
+                    <Bar value={e.convAfMat} color="#16A34A" />
                   </div>
                 </td>
-                <td className="text-xs font-bold text-blue-600">{e.promedioIntentos > 0 ? e.promedioIntentos.toFixed(1) : '—'}</td>
+                <td className="text-xs font-bold text-blue-600">{e.convFinal.toFixed(2)}%</td>
                 <td>
                   {e.semCont === 'verde' && e.semConv === 'verde' && e.semMat === 'verde' ? (
                     <span className="text-xs font-bold text-green-600">Top Performer</span>
-                  ) : e.semCont === 'rojo' || e.semConv === 'rojo' ? (
+                  ) : e.semCont === 'rojo' || e.semMat === 'rojo' ? (
                     <span className="text-xs font-bold text-red-600">Requiere coaching</span>
                   ) : (
                     <span className="text-xs text-gray-400">En desarrollo</span>
@@ -124,13 +128,14 @@ export function RegimenTable({ data }: { data: RegimenStats[] }) {
               <th>Régimen</th>
               <th>Recorridos</th>
               <th>Contactados</th>
-              <th>Citas</th>
-              <th>Matrículas</th>
+              <th>Citas (Viene)</th>
+              <th>Afluencia (A+M+MC)</th>
+              <th>Matrículas (M+MC)</th>
               <th>Contactab. %</th>
-              <th>Conv Cont→Cita %</th>
-              <th>Conv Cita→Mat %</th>
+              <th>Cont→Cita %</th>
+              <th>Cita→AF %</th>
+              <th>AF→Mat %</th>
               <th>Conv Final %</th>
-              <th>Top Citas</th>
             </tr>
           </thead>
           <tbody>
@@ -139,13 +144,14 @@ export function RegimenTable({ data }: { data: RegimenStats[] }) {
                 <td className="font-medium">{r.regimen}</td>
                 <td>{r.recorridos.toLocaleString('es-CL')}</td>
                 <td>{r.contactados}</td>
-                <td><Badge n={r.citas} color={ORANGE} /></td>
-                <td><Badge n={r.matriculas} color="#7C3AED" /></td>
+                <td><Badge n={r.citas}      color={ORANGE} /></td>
+                <td><Badge n={r.afluencias} color="#7C3AED" /></td>
+                <td><Badge n={r.matriculas} color="#16A34A" /></td>
                 <td><Bar value={r.contactabilidad} color="#22C55E" /></td>
-                <td><Bar value={r.convContCita} color={ORANGE} /></td>
-                <td><Bar value={r.convCitaMat}  color="#7C3AED" /></td>
-                <td><Bar value={r.convFinal}    color="#0EA5E9" /></td>
-                <td>{r.citas === Math.max(...data.map(x => x.citas)) ? <span className="text-xs font-bold text-orange-600">🏆 Más citas</span> : null}</td>
+                <td><Bar value={r.convContCita}     color={ORANGE} /></td>
+                <td><Bar value={r.convCitaAf}       color="#7C3AED" /></td>
+                <td><Bar value={r.convAfMat}         color="#16A34A" /></td>
+                <td><Bar value={r.convFinal}          color="#0EA5E9" /></td>
               </tr>
             ))}
           </tbody>
@@ -184,14 +190,16 @@ export function CarreraTable({ data }: { data: CarreraStats[] }) {
           <thead>
             <tr>
               <th>#</th>
-              <th>Carrera</th>
+              <th>Carrera / Programa</th>
               <th>Recorridos</th>
               <th>Contactados</th>
-              <th>Citas</th>
-              <th>Matrículas</th>
+              <th>Citas (Viene)</th>
+              <th>Afluencia (A+M+MC)</th>
+              <th>Matrículas (M+MC)</th>
               <th>Contactab. %</th>
-              <th>Conv Cont→Cita %</th>
-              <th>Conv Cita→Mat %</th>
+              <th>Cont→Cita %</th>
+              <th>Cita→AF %</th>
+              <th>AF→Mat %</th>
               <th>Conv Final %</th>
             </tr>
           </thead>
@@ -200,14 +208,16 @@ export function CarreraTable({ data }: { data: CarreraStats[] }) {
               <tr key={c.carrera} className={altaBaja.includes(c) ? 'bg-red-50' : ''}>
                 <td className="font-bold text-center text-gray-400 text-xs">{i + 1}</td>
                 <td className="font-medium text-xs">{c.carrera}</td>
-                <td>{c.recorridos}</td>
+                <td>{c.recorridos.toLocaleString('es-CL')}</td>
                 <td>{c.contactados}</td>
                 <td><Badge n={c.citas}       color={ORANGE} /></td>
-                <td><Badge n={c.matriculas}  color="#7C3AED" /></td>
+                <td><Badge n={c.afluencias}  color="#7C3AED" /></td>
+                <td><Badge n={c.matriculas}  color="#16A34A" /></td>
                 <td><Bar value={c.contactabilidad} color="#22C55E" /></td>
                 <td><Bar value={c.convContCita}     color={ORANGE} /></td>
-                <td><Bar value={c.convCitaMat}      color="#7C3AED" /></td>
-                <td><Bar value={c.convFinal}         color="#0EA5E9" /></td>
+                <td><Bar value={c.convCitaAf}       color="#7C3AED" /></td>
+                <td><Bar value={c.convAfMat}         color="#16A34A" /></td>
+                <td><Bar value={c.convFinal}          color="#0EA5E9" /></td>
               </tr>
             ))}
           </tbody>
@@ -230,10 +240,12 @@ export function BaseTable({ data }: { data: BaseStats[] }) {
               <th>Tipo Base</th>
               <th>Recorridos</th>
               <th>Contactados</th>
-              <th>Citas</th>
-              <th>Matrículas</th>
+              <th>Citas (Viene)</th>
+              <th>Afluencia (A+M+MC)</th>
+              <th>Matrículas (M+MC)</th>
               <th>Contactab. %</th>
-              <th>Conv Cont→Cita %</th>
+              <th>Cont→Cita %</th>
+              <th>Cita→AF %</th>
               <th>Conv Final %</th>
               <th>Ranking</th>
             </tr>
@@ -244,11 +256,13 @@ export function BaseTable({ data }: { data: BaseStats[] }) {
                 <td className="font-medium">{b.base}</td>
                 <td>{b.recorridos.toLocaleString('es-CL')}</td>
                 <td>{b.contactados}</td>
-                <td><Badge n={b.citas}      color={ORANGE} /></td>
-                <td><Badge n={b.matriculas} color="#7C3AED" /></td>
+                <td><Badge n={b.citas}       color={ORANGE} /></td>
+                <td><Badge n={b.afluencias}  color="#7C3AED" /></td>
+                <td><Badge n={b.matriculas}  color="#16A34A" /></td>
                 <td><Bar value={b.contactabilidad} color="#22C55E" /></td>
                 <td><Bar value={b.convContCita}     color={ORANGE} /></td>
-                <td><Bar value={b.convFinal}         color="#0EA5E9" /></td>
+                <td><Bar value={b.convCitaAf}       color="#7C3AED" /></td>
+                <td><Bar value={b.convFinal}          color="#0EA5E9" /></td>
                 <td>
                   {i === 0 ? <Badge n="🏆 Mejor" color="#22C55E" /> : i === data.length - 1 ? <Badge n="⚠️ Peor" color="#EF4444" /> : null}
                 </td>
@@ -335,16 +349,24 @@ export function ProyeccionTable({ data }: { data: Proyeccion[] }) {
             <div className="font-black text-lg" style={{ color: colors[i] }}>{p.tipo}</div>
             <div className="mt-3 space-y-2">
               <div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider">Recorridos proy.</div>
+                <div className="font-bold text-lg" style={{ color: colors[i] }}>{p.recorridos.toLocaleString('es-CL')}</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-500 uppercase tracking-wider">Citas proyectadas</div>
-                <div className="font-bold text-2xl" style={{ color: colors[i] }}>{p.citas.toLocaleString('es-CL')}</div>
+                <div className="font-bold text-xl" style={{ color: colors[i] }}>{p.citas.toLocaleString('es-CL')}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider">Afluencia proyectada</div>
+                <div className="font-bold" style={{ color: colors[i] }}>{p.afluencias.toLocaleString('es-CL')}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 uppercase tracking-wider">Matrículas proyectadas</div>
                 <div className="font-bold text-xl" style={{ color: colors[i] }}>{p.matriculas.toLocaleString('es-CL')}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider">Conversión proyectada</div>
-                <div className="font-bold" style={{ color: colors[i] }}>{p.conversion.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider">Conv. Final proy.</div>
+                <div className="font-bold" style={{ color: colors[i] }}>{p.convFinal.toFixed(2)}%</div>
               </div>
             </div>
           </div>
