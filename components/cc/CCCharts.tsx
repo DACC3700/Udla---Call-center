@@ -86,7 +86,7 @@ export default function CCCharts({ ejecutivos, regimenes, carreras, bases, tempo
         datasets: [
           { label: 'Contactabilidad %', data: top.map(e => e.contactabilidad.toFixed(1)), backgroundColor: GREEN,  borderRadius: 3 },
           { label: 'Conv Cont→Cita %',  data: top.map(e => e.convContCita.toFixed(1)),    backgroundColor: ORANGE, borderRadius: 3 },
-          { label: 'Conv Cita→Mat %',   data: top.map(e => e.convCitaMat.toFixed(1)),     backgroundColor: PURPLE, borderRadius: 3 },
+          { label: 'Conv Cita→AF %',    data: top.map(e => e.convCitaAf.toFixed(1)),      backgroundColor: PURPLE, borderRadius: 3 },
         ],
       },
       options: {
@@ -111,7 +111,7 @@ export default function CCCharts({ ejecutivos, regimenes, carreras, bases, tempo
         datasets: [
           { label: 'Contactabilidad %', data: top.map(c => c.contactabilidad.toFixed(1)), backgroundColor: GREEN,              borderRadius: 3 },
           { label: 'Conv Cont→Cita %',  data: top.map(c => c.convContCita.toFixed(1)),    backgroundColor: ORANGE,             borderRadius: 3 },
-          { label: 'Conv Cita→Mat %',   data: top.map(c => c.convCitaMat.toFixed(1)),     backgroundColor: PURPLE,             borderRadius: 3 },
+          { label: 'Conv Cita→Mat %',   data: top.map(c => c.convCitaAf.toFixed(1)),     backgroundColor: PURPLE,             borderRadius: 3 },
           { label: 'Conv Final %',       data: top.map(c => c.convFinal.toFixed(1)),       backgroundColor: 'rgba(14,165,233,0.7)', borderRadius: 3 },
         ],
       },
@@ -136,7 +136,7 @@ export default function CCCharts({ ejecutivos, regimenes, carreras, bases, tempo
         datasets: [
           { label: 'Contactabilidad %', data: regimenes.map(r => r.contactabilidad.toFixed(1)), backgroundColor: GREEN,              borderRadius: 3 },
           { label: 'Conv Cont→Cita %',  data: regimenes.map(r => r.convContCita.toFixed(1)),    backgroundColor: ORANGE,             borderRadius: 3 },
-          { label: 'Conv Cita→Mat %',   data: regimenes.map(r => r.convCitaMat.toFixed(1)),     backgroundColor: PURPLE,             borderRadius: 3 },
+          { label: 'Conv Cita→Mat %',   data: regimenes.map(r => r.convCitaAf.toFixed(1)),     backgroundColor: PURPLE,             borderRadius: 3 },
           { label: 'Conv Final %',       data: regimenes.map(r => r.convFinal.toFixed(1)),       backgroundColor: 'rgba(14,165,233,0.7)', borderRadius: 3 },
         ],
       },
