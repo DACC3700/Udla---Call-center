@@ -174,74 +174,148 @@ canvas.tall{max-height:520px !important}
 <section class="funnel-section">
   <div class="container">
 
-    <!-- Fila 1: embudo visual -->
-    <div class="funnel-wrap">
-      <div class="kpi-card" style="border-left-color:#6B7280">
-        <div class="kpi-label">1 · Recorridos</div>
-        <div class="kpi-value" id="kpi-total">—</div>
-        <div class="kpi-sub">Total leads base</div>
+    <!-- Fila 1: embudo visual — se adapta al tipo de archivo -->
+    <div class="funnel-wrap" id="funnel-wrap">
+
+      <!-- MODO CITAS CRM (default visible) -->
+      <div id="funnel-citas" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1">
+        <div class="kpi-card" style="border-left-color:#6B7280">
+          <div class="kpi-label">1 · Total Citas</div>
+          <div class="kpi-value" id="kpi-total">—</div>
+          <div class="kpi-sub">Interés = "Viene" (todos los registros)</div>
+        </div>
+        <div class="funnel-arrow" style="color:var(--red)">▼<span id="fa-noshow">—</span></div>
+        <div class="kpi-card" id="kc-noshow" style="border-left-color:var(--red)">
+          <div class="kpi-label">2 · No Show</div>
+          <div class="kpi-value" id="kpi-noshow" style="color:var(--red)">—</div>
+          <div class="kpi-sub">Ultimo Interés Cierre = "No Viene"</div>
+          <div class="kpi-sem" id="ksem-noshow"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-noshow" style="width:0%;background:var(--red)"></div></div>
+        </div>
+        <div class="funnel-arrow" style="color:var(--purple)">▼<span id="fa-af-c">—</span></div>
+        <div class="kpi-card" id="kc-af-c" style="border-left-color:var(--purple)">
+          <div class="kpi-label">3 · Afluencia (A+M+MC)</div>
+          <div class="kpi-value" id="kpi-af-c">—</div>
+          <div class="kpi-sub">Asistieron a cita — Matrícula IN [A,M,MC]</div>
+          <div class="kpi-sem" id="ksem-af-c"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-af-c" style="width:0%;background:var(--purple)"></div></div>
+        </div>
+        <div class="funnel-arrow">▼<span id="fa-mat-c">—</span></div>
+        <div class="kpi-card" id="kc-mat-c" style="border-left-color:var(--green)">
+          <div class="kpi-label">4 · Matrículas (M+MC)</div>
+          <div class="kpi-value" id="kpi-mat-c">—</div>
+          <div class="kpi-sub">Matrícula confirmada</div>
+          <div class="kpi-sem" id="ksem-mat-c"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-mat-c" style="width:0%;background:var(--green)"></div></div>
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--yellow)">
+          <div class="kpi-label">5 · En Proceso</div>
+          <div class="kpi-value" id="kpi-pend" style="color:var(--yellow)">—</div>
+          <div class="kpi-sub">Sin resolución definitiva aún</div>
+        </div>
       </div>
-      <div class="funnel-arrow">▼<span id="fa-cont">—</span></div>
-      <div class="kpi-card" id="kc-cont">
-        <div class="kpi-label">2 · Contactados (Conecta)</div>
-        <div class="kpi-value" id="kpi-cont">—</div>
-        <div class="kpi-sub" id="ks-cont">Conecta = "Conecta"</div>
-        <div class="kpi-sem" id="ksem-cont"></div>
-        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-cont" style="width:0%"></div></div>
+
+      <!-- MODO GESTIÓN CC (oculto hasta detectar) -->
+      <div id="funnel-gestion" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;flex:1">
+        <div class="kpi-card" style="border-left-color:#6B7280">
+          <div class="kpi-label">1 · Recorridos</div>
+          <div class="kpi-value" id="kpi-total-g">—</div>
+          <div class="kpi-sub">Total leads base</div>
+        </div>
+        <div class="funnel-arrow">▼<span id="fa-cont">—</span></div>
+        <div class="kpi-card" id="kc-cont">
+          <div class="kpi-label">2 · Contactados</div>
+          <div class="kpi-value" id="kpi-cont">—</div>
+          <div class="kpi-sub" id="ks-cont">Conecta = "Conecta"</div>
+          <div class="kpi-sem" id="ksem-cont"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-cont" style="width:0%"></div></div>
+        </div>
+        <div class="funnel-arrow">▼<span id="fa-cita">—</span></div>
+        <div class="kpi-card" id="kc-cita">
+          <div class="kpi-label">3 · Citas (Viene)</div>
+          <div class="kpi-value" id="kpi-cita">—</div>
+          <div class="kpi-sub">Interesa = "Viene"</div>
+          <div class="kpi-sem" id="ksem-cita"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-cita" style="width:0%"></div></div>
+        </div>
+        <div class="funnel-arrow">▼<span id="fa-af">—</span></div>
+        <div class="kpi-card" id="kc-af" style="border-left-color:var(--purple)">
+          <div class="kpi-label">4 · Afluencia (A+M+MC)</div>
+          <div class="kpi-value" id="kpi-af">—</div>
+          <div class="kpi-sub">Asistieron a cita</div>
+          <div class="kpi-sem" id="ksem-af"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-af" style="width:0%;background:var(--purple)"></div></div>
+        </div>
+        <div class="funnel-arrow">▼<span id="fa-mat">—</span></div>
+        <div class="kpi-card" id="kc-mat" style="border-left-color:var(--green)">
+          <div class="kpi-label">5 · Matrículas (M+MC)</div>
+          <div class="kpi-value" id="kpi-mat">—</div>
+          <div class="kpi-sub">Matrícula confirmada</div>
+          <div class="kpi-sem" id="ksem-mat"></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-mat" style="width:0%;background:var(--green)"></div></div>
+        </div>
       </div>
-      <div class="funnel-arrow">▼<span id="fa-cita">—</span></div>
-      <div class="kpi-card" id="kc-cita">
-        <div class="kpi-label">3 · Citas (Viene)</div>
-        <div class="kpi-value" id="kpi-cita">—</div>
-        <div class="kpi-sub">Interesa = "Viene"</div>
-        <div class="kpi-sem" id="ksem-cita"></div>
-        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-cita" style="width:0%"></div></div>
-      </div>
-      <div class="funnel-arrow">▼<span id="fa-af">—</span></div>
-      <div class="kpi-card" id="kc-af" style="border-left-color:var(--purple)">
-        <div class="kpi-label">4 · Afluencia (A+M+MC)</div>
-        <div class="kpi-value" id="kpi-af">—</div>
-        <div class="kpi-sub">Asistieron a cita presencial</div>
-        <div class="kpi-sem" id="ksem-af"></div>
-        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-af" style="width:0%;background:var(--purple)"></div></div>
-      </div>
-      <div class="funnel-arrow">▼<span id="fa-mat">—</span></div>
-      <div class="kpi-card" id="kc-mat" style="border-left-color:var(--green)">
-        <div class="kpi-label">5 · Matrículas (M+MC)</div>
-        <div class="kpi-value" id="kpi-mat">—</div>
-        <div class="kpi-sub">Matrícula confirmada</div>
-        <div class="kpi-sem" id="ksem-mat"></div>
-        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-mat" style="width:0%;background:var(--green)"></div></div>
-      </div>
+
     </div>
 
     <!-- Fila 2: Tasas de conversión -->
-    <div class="conv-row">
+    <div class="conv-row" id="conv-row-citas">
+      <div class="kpi-card" style="border-left-color:var(--red)">
+        <div class="kpi-label">A · Tasa No Show</div>
+        <div class="kpi-value" id="kpi-noshow-rate" style="color:var(--red)">—</div>
+        <div class="kpi-sub">No Show / Total Citas · Meta: &lt;35%</div>
+        <div class="kpi-sem" id="ksem-nsr"></div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-nsr" style="width:0%;background:var(--red)"></div></div>
+      </div>
+      <div class="kpi-card" style="border-left-color:var(--purple)">
+        <div class="kpi-label">B · Conv Cita → Afluencia</div>
+        <div class="kpi-value" id="kpi-ca-c" style="color:var(--purple)">—</div>
+        <div class="kpi-sub">Afluencia / Total Citas · Meta: 20%</div>
+        <div class="kpi-sem" id="ksem-ca-c"></div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-ca-c" style="width:0%;background:var(--purple)"></div></div>
+      </div>
+      <div class="kpi-card" style="border-left-color:var(--green)">
+        <div class="kpi-label">C · Conv Afluencia → Matrícula</div>
+        <div class="kpi-value" id="kpi-am-c" style="color:var(--green)">—</div>
+        <div class="kpi-sub">Matrículas / Afluencia · Meta: 50%</div>
+        <div class="kpi-sem" id="ksem-am-c"></div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-am-c" style="width:0%;background:var(--green)"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">D · Conv Final Cita → Matrícula</div>
+        <div class="kpi-value" id="kpi-cf-c" style="color:var(--orange)">—</div>
+        <div class="kpi-sub">Matrículas / Total Citas</div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-cf-c" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Fila 2 modo GESTIÓN (oculta por default) -->
+    <div class="conv-row" id="conv-row-gestion" style="display:none">
       <div class="kpi-card">
         <div class="kpi-label">6 · Contactabilidad</div>
         <div class="kpi-value" id="kpi-contactabilidad" style="color:var(--orange)">—</div>
-        <div class="kpi-sub">Contactados / Recorridos</div>
+        <div class="kpi-sub">Contactados / Recorridos · Meta: 50%</div>
         <div class="kpi-sem" id="ksem-contactabilidad"></div>
         <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-contactabilidad" style="width:0%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">7 · Conv Cont → Cita</div>
         <div class="kpi-value" id="kpi-cc" style="color:var(--orange)">—</div>
-        <div class="kpi-sub">Viene / Contactados</div>
+        <div class="kpi-sub">Viene / Contactados · Meta: 22%</div>
         <div class="kpi-sem" id="ksem-cc"></div>
         <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-cc" style="width:0%"></div></div>
       </div>
       <div class="kpi-card" style="border-left-color:var(--purple)">
         <div class="kpi-label">8 · Conv Cita → Afluencia</div>
         <div class="kpi-value" id="kpi-ca" style="color:var(--purple)">—</div>
-        <div class="kpi-sub">Afluencia / Citas</div>
+        <div class="kpi-sub">Afluencia / Citas · Meta: 20%</div>
         <div class="kpi-sem" id="ksem-ca"></div>
         <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-ca" style="width:0%;background:var(--purple)"></div></div>
       </div>
       <div class="kpi-card" style="border-left-color:var(--green)">
         <div class="kpi-label">9 · Conv AF → Matrícula</div>
         <div class="kpi-value" id="kpi-am" style="color:var(--green)">—</div>
-        <div class="kpi-sub">Matrículas / Afluencia</div>
+        <div class="kpi-sub">Matrículas / Afluencia · Meta: 50%</div>
         <div class="kpi-sem" id="ksem-am"></div>
         <div class="kpi-bar-wrap"><div class="kpi-bar-fill" id="kb-am" style="width:0%;background:var(--green)"></div></div>
       </div>
@@ -259,14 +333,16 @@ canvas.tall{max-height:520px !important}
       <span class="filter-label">Filtros:</span>
       <input type="date" id="f-desde" class="finput" title="Fecha desde">
       <input type="date" id="f-hasta" class="finput" title="Fecha hasta">
-      <select id="f-agente"    class="fselect"><option value="all">— Agente —</option></select>
-      <select id="f-base"      class="fselect"><option value="all">— Tipo Base —</option></select>
-      <select id="f-regimen"   class="fselect"><option value="all">— Régimen —</option></select>
-      <select id="f-carrera"   class="fselect"><option value="all">— Carrera —</option></select>
-      <select id="f-semana"    class="fselect"><option value="all">— Semana —</option></select>
-      <select id="f-mes"       class="fselect"><option value="all">— Mes —</option></select>
-      <select id="f-suborigen" class="fselect"><option value="all">— Suborigen —</option></select>
-      <select id="f-seguimiento" class="fselect"><option value="all">— Seguimiento —</option></select>
+      <select id="f-agente"       class="fselect"><option value="all">— Propietario/Agente —</option></select>
+      <select id="f-campus"       class="fselect"><option value="all">— Campus —</option></select>
+      <select id="f-base"         class="fselect"><option value="all">— Tipo Base —</option></select>
+      <select id="f-regimen"      class="fselect"><option value="all">— Régimen —</option></select>
+      <select id="f-carrera"      class="fselect"><option value="all">— Carrera —</option></select>
+      <select id="f-semana"       class="fselect"><option value="all">— Semana —</option></select>
+      <select id="f-mes"          class="fselect"><option value="all">— Mes —</option></select>
+      <select id="f-suborigen"    class="fselect"><option value="all">— Sub Origen —</option></select>
+      <select id="f-interescierre" class="fselect"><option value="all">— Último Int. Cierre —</option></select>
+      <select id="f-seguimiento"  class="fselect"><option value="all">— Seguimiento —</option></select>
       <button class="btn-clear" id="btn-clear">✕ Limpiar</button>
       <span class="records-badge" id="records-badge"></span>
     </div>
@@ -280,8 +356,9 @@ canvas.tall{max-height:520px !important}
     <!-- Placeholder vacío -->
     <div id="placeholder" class="upload-placeholder" onclick="document.getElementById('file-input').click()">
       <div class="upload-placeholder-icon">📊</div>
-      <div class="upload-placeholder-text">Carga el Excel de Gestión Call Center para activar el dashboard</div>
-      <div class="upload-placeholder-sub">Compatible con .xlsx · .xls · .csv · Arrastra aquí o haz clic</div>
+      <div class="upload-placeholder-text" id="placeholder-text">Carga el Excel de Citas Contact Center para activar el dashboard</div>
+      <div class="upload-placeholder-sub">Compatible con .xlsx · .xls · .csv · Arrastra aquí o haz clic<br>
+      <small style="font-size:9px;color:#B45309">Columnas requeridas: Propietario (Referente a) (Contacto) · Fecha de creación · Ultimo Interés Cierre (Referente a) (Contacto) · Matricula</small></div>
     </div>
 
     <!-- Dashboard -->
@@ -467,27 +544,58 @@ const C = {
 };
 
 /* ============================================================
-   ALIASES DE COLUMNAS — BBDD REAL UDLA
-   Columnas reales: Agente, Conecta, Interesa, Matricula, Seguimiento,
-   Tipo Base, Regimen, Carrera, SUB ORIGEN, Semana, Mes, Fecha Gestion
+   ALIASES DE COLUMNAS — soporta 2 formatos UDLA:
+   A) CITAS CRM:   Propietario (Referente a) (Contacto), Fecha de creación,
+                   Ultimo Interés Cierre (Referente a) (Contacto), Matricula,
+                   Carrera de interés, Régimen Interés 1, Campus,
+                   Primer Sub Origen (Referente a) (Contacto), Seguimiento Cierre
+   B) GESTIÓN CC:  Agente, Conecta, Interesa, Matricula, Seguimiento,
+                   Tipo Base, Regimen, Carrera, SUB ORIGEN, Semana, Mes, Fecha Gestion
    ============================================================ */
 const ALIASES = {
-  agente:      ['agente','ejecutivo','consultor','asesor','llamada a'],
-  conecta:     ['conecta'],
-  interesa:    ['interesa','interés'],
-  matricula:   ['matricula','matrícula'],
-  seguimiento: ['seguimiento'],
-  base:        ['tipo base','tipo_base','base'],
-  regimen:     ['regimen','régimen','modalidad'],
-  carrera:     ['carrera','programa'],
-  suborigen:   ['sub origen','suborigen','primer sub origen'],
-  semana:      ['semana'],
-  mes:         ['mes'],
-  fecha:       ['fecha gestion','fecha_gestion','fecha llamada','fecha','fecha de cracion','fecha de creacion','createdate'],
+  // Agente / Propietario — columna principal del ejecutivo
+  agente:       ['propietario (referente a) (contacto)',
+                 'propietario',
+                 'agente','ejecutivo','consultor','asesor','llamada a'],
+  // Columnas exclusivas de GESTIÓN CC
+  conecta:      ['conecta'],
+  interesa:     ['interesa','interés'],
+  // Resultado / outcome — columna exclusiva de CITAS CRM
+  interescierre:['ultimo interes cierre (referente a) (contacto)',
+                 'ultimo interes cierre',
+                 'interes cierre','interés cierre'],
+  // Seguimiento
+  seguimiento:  ['seguimiento cierre','seguimiento'],
+  // Matrícula (mismo nombre en ambos formatos)
+  matricula:    ['matricula','matrícula'],
+  // Dimensiones
+  campus:       ['campus'],
+  base:         ['tipo base','tipo_base','base'],
+  regimen:      ['regimen interes 1','régimen interés 1','regimen','régimen','modalidad'],
+  carrera:      ['carrera de interes','carrera de interés','carrera','programa'],
+  suborigen:    ['primer sub origen (referente a) (contacto)',
+                 'sub origen','suborigen','primer sub origen'],
+  semana:       ['semana'],
+  mes:          ['mes'],
+  fecha:        ['fecha de creacion','fecha de creación',
+                 'fecha gestion','fecha_gestion','fecha llamada',
+                 'fecha','fecha de cracion','createdate'],
+  // ⚠️ REGLA CRÍTICA: Afluencia y Matrícula se atribuyen a Fecha Matrícula, NUNCA a Fecha Gestión
+  fechamat:     ['fecha matricula','fecha matrícula','fechamatricula','fecha_matricula'],
 };
 
-// Filtros dinámicos
-const FILTER_KEYS = ['agente','base','regimen','carrera','semana','mes','suborigen','seguimiento'];
+// Filtros dinámicos — aplican a ambos formatos (algunos quedan vacíos si no hay col)
+const FILTER_KEYS = ['agente','campus','base','regimen','carrera','semana','mes','suborigen','interescierre','seguimiento'];
+
+// Detecta el tipo de archivo cargado
+function detectFileType(){
+  // Si tiene columna "conecta" → GESTIÓN CC
+  if(COLS.conecta) return 'gestion';
+  // Si tiene "interescierre" o "campus" → CITAS CRM
+  if(COLS.interescierre||COLS.campus) return 'citas';
+  return 'citas'; // default
+}
+let FILE_TYPE = 'citas';
 
 /* ============================================================
    ESTADO GLOBAL
@@ -535,35 +643,57 @@ function parseDate(str){
 }
 
 /* ============================================================
-   REGLAS DE NEGOCIO UDLA CALL CENTER
+   REGLAS DE NEGOCIO UDLA
+   Soporta CITAS CRM y GESTIÓN CC
    ============================================================ */
 
-/** CONTACTADO: columna "Conecta" == "Conecta" */
+/** CONTACTADO (solo Gestión CC): Conecta == "Conecta" */
 function isContactado(row){
   const v=getVal(row,'conecta');
   if(v!==null) return norm(v)==='conecta';
-  // Fallback si no hay columna conecta: Interesa != "No Contactado"
   const i=getVal(row,'interesa');
   if(i!==null) return norm(i)!=='no contactado';
   return false;
 }
 
-/** CITA: columna "Interesa" == "Viene" */
+/** CITA (solo Gestión CC): Interesa == "Viene" */
 function tieneCita(row){
   const v=getVal(row,'interesa');
   return v!==null && norm(v)==='viene';
 }
 
-/** AFLUENCIA: columna "Matricula" IN ['A','M','MC'] */
+/** AFLUENCIA: Matricula IN ['A','M','MC'] — aplica a AMBOS formatos */
 function esAfluencia(row){
   const v=(getVal(row,'matricula')||'').trim().toUpperCase();
   return v==='A'||v==='M'||v==='MC';
 }
 
-/** MATRÍCULA: columna "Matricula" IN ['M','MC'] */
+/** MATRÍCULA: Matricula IN ['M','MC'] — aplica a AMBOS formatos */
 function esMatricula(row){
   const v=(getVal(row,'matricula')||'').trim().toUpperCase();
   return v==='M'||v==='MC';
+}
+
+/**
+ * NO SHOW (solo Citas CRM):
+ * "Ultimo Interés Cierre (Referente a) (Contacto)" == "No Viene"
+ */
+function esNoShow(row){
+  const v=getVal(row,'interescierre');
+  if(v!==null) return norm(v)==='no viene';
+  return false;
+}
+
+/**
+ * SIN RESOLVER (Citas CRM): sin resultado final todavía
+ * No AF, No No-Show, interescierre no es definitivo
+ */
+function esPendiente(row){
+  if(esAfluencia(row))return false;
+  if(esNoShow(row))return false;
+  const v=norm(getVal(row,'interescierre')||'');
+  const definitivos=['matriculada','no califica','evalua otra institucion'];
+  return!definitivos.includes(v);
 }
 
 /* ============================================================
@@ -663,6 +793,8 @@ function processFile(file){
 function ingestData(data,filename,fileSize,parseMs){
   DATA=data;
   COLS=mapCols(Object.keys(data[0]));
+  FILE_TYPE=detectFileType();   // 'citas' o 'gestion'
+  META = FILE_TYPE==='citas' ? META_CITAS : META_GESTION;
   FIL={};
   PAG={};  // reset paginación
 
@@ -685,12 +817,19 @@ function ingestData(data,filename,fileSize,parseMs){
 
   // Info archivo en header
   const warn=data.length>500000?' ⚠ Dataset muy grande — filtros recomendados':'';
+  const modeLabel=FILE_TYPE==='citas'?'📋 Modo: Citas CRM':'⚙️ Modo: Gestión CC';
   document.getElementById('file-info').textContent=
     '📄 '+filename+
     ' · '+(fileSize?fmtSize(fileSize)+' · ':'')+
     data.length.toLocaleString('es-CL')+' registros'+
     ' · parse '+parseMs+'ms'+
+    ' · '+modeLabel+
     ' · '+new Date().toLocaleTimeString('es-CL')+warn;
+  // Actualiza placeholder text
+  document.getElementById('placeholder-text').textContent=
+    FILE_TYPE==='citas'
+      ? 'Carga el Excel de Citas Contact Center para activar el dashboard'
+      : 'Carga el Excel de Gestión Call Center para activar el dashboard';
 
   setTimeout(()=>{
     document.getElementById('loading-prog-fill').style.width='100%';
@@ -747,25 +886,63 @@ function getFiltered(){
 }
 
 /* ============================================================
-   COMPUTACIONES — TODAS BASADAS EN REGLAS UDLA
+   METAS OFICIALES UDLA — se ajustan según tipo de archivo
+   ============================================================ */
+const META_CITAS = {
+  convCitaAf:   20,   // % Afluencia / Citas
+  convAfMat:    50,   // % Matrículas / Afluencia
+  noShowMax:    35,   // % No Show máximo aceptable (semáforo inverso)
+};
+const META_GESTION = {
+  contactabilidad: 50,
+  convContCita:    22,
+  convCitaAf:      20,
+  convAfMat:       50,
+};
+// META activo (se actualiza al cargar archivo)
+let META = {...META_CITAS, ...META_GESTION};
+
+/* ============================================================
+   COMPUTACIONES — CITAS CRM y GESTIÓN CC
    ============================================================ */
 function computeKpis(data){
-  let cont=0,cita=0,af=0,mat=0;
+  let cont=0,cita=0,af=0,mat=0,noShow=0,pendiente=0;
   data.forEach(row=>{
-    if(isContactado(row))cont++;
-    if(tieneCita(row))   cita++;
-    if(esAfluencia(row)) af++;
-    if(esMatricula(row)) mat++;
+    if(isContactado(row)) cont++;
+    if(tieneCita(row))    cita++;
+    if(esAfluencia(row))  af++;
+    if(esMatricula(row))  mat++;
+    if(esNoShow(row))     noShow++;
+    if(esPendiente(row))  pendiente++;
   });
   const n=data.length;
-  return{
-    total:n, cont, noCont:n-cont, cita, af, mat,
-    contactabilidad: n>0   ? cont/n*100   : 0,
-    convContCita:    cont>0? cita/cont*100 : 0,
-    convCitaAf:      cita>0? af/cita*100   : 0,
-    convAfMat:       af>0  ? mat/af*100    : 0,
-    convFinal:       n>0   ? mat/n*100     : 0,
-  };
+
+  if(FILE_TYPE==='citas'){
+    // Modo CITAS CRM: el total = citas (todos los registros son citas)
+    return{
+      mode:'citas',
+      total:n,          // Total Citas
+      noShow,           // No Vinieron (No Viene en Ultimo Interés Cierre)
+      af,               // Afluencia (A+M+MC)
+      mat,              // Matrícula (M+MC)
+      pendiente,        // Sin resolución definitiva
+      noShowRate:  n>0   ? noShow/n*100 : 0,
+      convCitaAf:  n>0   ? af/n*100     : 0,
+      convAfMat:   af>0  ? mat/af*100   : 0,
+      convFinal:   n>0   ? mat/n*100    : 0,
+    };
+  } else {
+    // Modo GESTIÓN CC: funnel completo 5 etapas
+    return{
+      mode:'gestion',
+      total:n, cont, noCont:n-cont, cita, af, mat,
+      contactabilidad: n>0   ? cont/n*100   : 0,
+      convContCita:    cont>0? cita/cont*100 : 0,
+      convCitaAf:      cita>0? af/cita*100   : 0,
+      convAfMat:       af>0  ? mat/af*100    : 0,
+      convFinal:       n>0   ? mat/n*100     : 0,
+    };
+  }
 }
 
 /** Pivot por un campo — retorna array con funnel completo */
@@ -801,26 +978,61 @@ function computeSeguimiento(data){
   return Object.entries(c).sort((a,b)=>b[1]-a[1]);
 }
 
+/* ============================================================
+   computeTemporal — DUAL FECHA:
+   · Gestión (total / cont / cita) → Fecha de Gestión / Creación
+   · Resultado (af / mat)          → Fecha Matrícula  (REGLA CRÍTICA UDLA)
+   ============================================================ */
 function computeTemporal(data){
   const bySem=!!COLS['semana'], byMes=!bySem&&!!COLS['mes'];
+  const hasFechaMat=!!COLS['fechamat'];
   const MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const p={};
+
+  // Label para indicadores de GESTIÓN (usa fecha gestión / semana / mes col)
+  const gesLabel=(row)=>{
+    if(bySem){const v=getVal(row,'semana');if(v)return String(v);}
+    if(byMes){const v=getVal(row,'mes');if(v)return String(v);}
+    const d=parseDate(getVal(row,'fecha'));
+    return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;
+  };
+  // Label para indicadores de RESULTADO (usa Fecha Matrícula — REGLA CRÍTICA)
+  const matLabel=(row)=>{
+    if(hasFechaMat){
+      const d=parseDate(getVal(row,'fechamat'));
+      if(d)return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    }
+    return gesLabel(row); // fallback si no existe columna fecha matrícula
+  };
+  const ensure=(lbl)=>{if(lbl&&!p[lbl])p[lbl]={total:0,cont:0,cita:0,af:0,mat:0};};
+
   data.forEach(row=>{
-    let label;
-    if(bySem)label=getVal(row,'semana');
-    else if(byMes)label=getVal(row,'mes');
-    else{const d=parseDate(getVal(row,'fecha'));if(d)label=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
-    if(!label)return;
-    if(!p[label])p[label]={total:0,cont:0,cita:0,af:0,mat:0};
-    p[label].total++;
-    if(isContactado(row))p[label].cont++;
-    if(tieneCita(row))   p[label].cita++;
-    if(esAfluencia(row)) p[label].af++;
-    if(esMatricula(row)) p[label].mat++;
+    // ── GESTIÓN: atribuir a Fecha Gestión / Creación ──
+    const lg=gesLabel(row);
+    if(lg){
+      ensure(lg);
+      p[lg].total++;
+      if(isContactado(row)) p[lg].cont++;
+      if(tieneCita(row))    p[lg].cita++;
+    }
+    // ── RESULTADO: atribuir a Fecha Matrícula ──
+    if(esAfluencia(row)){
+      const lm=matLabel(row)||lg;
+      if(lm){
+        ensure(lm);
+        p[lm].af++;
+        if(esMatricula(row)) p[lm].mat++;
+      }
+    }
   });
+
   const labels=Object.keys(p).sort((a,b)=>{
-    if(byMes){const ai=MES.indexOf(norm(a)),bi=MES.indexOf(norm(b));return(ai===-1?99:ai)-(bi===-1?99:bi);}
-    // Semanas: "Semana 1", "Semana 2", etc.
+    // Si usamos mes-texto (sin fechamat como YYYY-MM)
+    if(byMes&&!hasFechaMat){
+      const ai=MES.indexOf(norm(a)),bi=MES.indexOf(norm(b));
+      return(ai===-1?99:ai)-(bi===-1?99:bi);
+    }
+    // YYYY-MM o número de semana
     const na=parseInt(a.replace(/\D/g,'')),nb=parseInt(b.replace(/\D/g,''));
     if(!isNaN(na)&&!isNaN(nb))return na-nb;
     return a.localeCompare(b);
@@ -828,102 +1040,163 @@ function computeTemporal(data){
   return{labels,pts:labels.map(l=>p[l])};
 }
 
+/* ============================================================
+   CAUSA RAÍZ — adaptada a Citas CRM y Gestión CC
+   ============================================================ */
 function computeCausaRaiz(data){
-  const noCita={},noMat={};
-  data.forEach(row=>{
-    const seg=norm(getVal(row,'seguimiento')||'');
-    const cita=tieneCita(row), mat=esMatricula(row);
-    if(!cita){
-      const c=clasNoCita(seg);
-      noCita[c]=(noCita[c]||0)+1;
-    }
-    if(cita&&!mat){
-      const c=clasNoMat(seg);
-      noMat[c]=(noMat[c]||0)+1;
-    }
-  });
-  const toArr=counts=>{
-    const total=Object.values(counts).reduce((s,v)=>s+v,0);
-    return Object.entries(counts).map(([c,n])=>({c,n,pct:total>0?n/total*100:0})).sort((a,b)=>b.n-a.n);
-  };
-  return{noCita:toArr(noCita),noMat:toArr(noMat)};
+  if(FILE_TYPE==='citas'){
+    // Para CITAS: usa "Ultimo Interés Cierre" como causa de No Show
+    // y "Seguimiento Cierre" como causa de no-matrícula post-afluencia
+    const noShow={}, noMat={}, segCierre={};
+    data.forEach(row=>{
+      const ic=norm(getVal(row,'interescierre')||'');
+      const seg=norm(getVal(row,'seguimiento')||'');
+      const af=esAfluencia(row), mat=esMatricula(row);
+      // Causas No Show (usando Ultimo Interés Cierre)
+      if(!af){noShow[getVal(row,'interescierre')||'Sin dato']=(noShow[getVal(row,'interescierre')||'Sin dato']||0)+1;}
+      // Causas No Matrícula post-afluencia (usando Seguimiento Cierre)
+      if(af&&!mat){const c=getVal(row,'seguimiento')||getVal(row,'interescierre')||'Sin dato'; noMat[c]=(noMat[c]||0)+1;}
+      // Distribución Seguimiento Cierre general
+      const s=getVal(row,'seguimiento')||'Sin dato';
+      segCierre[s]=(segCierre[s]||0)+1;
+    });
+    const toArr=counts=>{
+      const total=Object.values(counts).reduce((s,v)=>s+v,0);
+      return Object.entries(counts).map(([c,n])=>({c,n,pct:total>0?n/total*100:0})).sort((a,b)=>b.n-a.n);
+    };
+    return{noCita:toArr(noShow).slice(0,12), noMat:toArr(noMat).slice(0,10), segCierre:toArr(segCierre).slice(0,12)};
+  } else {
+    // GESTIÓN CC: mismo lógico que antes
+    const noCita={},noMat={};
+    data.forEach(row=>{
+      const seg=norm(getVal(row,'seguimiento')||'');
+      const cita=tieneCita(row), mat=esMatricula(row);
+      if(!cita){const c=clasNoCita(seg);noCita[c]=(noCita[c]||0)+1;}
+      if(cita&&!mat){const c=clasNoMat(seg);noMat[c]=(noMat[c]||0)+1;}
+    });
+    const toArr=counts=>{const total=Object.values(counts).reduce((s,v)=>s+v,0);return Object.entries(counts).map(([c,n])=>({c,n,pct:total>0?n/total*100:0})).sort((a,b)=>b.n-a.n);};
+    return{noCita:toArr(noCita),noMat:toArr(noMat),segCierre:[]};
+  }
 }
 function clasNoCita(s){
-  if(s.includes('no contesta'))       return 'No Contesta';
-  if(s.includes('buzon')||s.includes('buzon de voz')) return 'Buzón de Voz';
-  if(s.includes('corta'))             return 'Corta Llamado';
-  if(s.includes('sin planes'))        return 'Sin Planes de Estudio';
-  if(s.includes('equivocado'))        return 'Número Equivocado';
-  if(s.includes('carrera no'))        return 'Carrera No Disponible';
-  if(s.includes('otro proceso'))      return 'Otro Proceso';
-  if(s.includes('vigente'))           return 'Estudiante Vigente';
-  if(s.includes('no califica'))       return 'No Califica';
-  if(s.includes('molesto'))           return 'Molesto';
-  if(s.includes('gratuidad'))         return 'Gratuidad';
-  if(s.includes('cae'))               return 'CAE';
-  if(s.includes('preparacion'))       return 'Preuniversitaria';
-  if(s.includes('problemas'))         return 'Problemas Personales';
+  if(s.includes('no contesta'))return 'No Contesta';
+  if(s.includes('buzon'))return 'Buzón de Voz';
+  if(s.includes('corta'))return 'Corta Llamado';
+  if(s.includes('sin planes'))return 'Sin Planes de Estudio';
+  if(s.includes('equivocado'))return 'Número Equivocado';
+  if(s.includes('carrera no'))return 'Carrera No Disponible';
+  if(s.includes('otro proceso'))return 'Otro Proceso';
+  if(s.includes('vigente'))return 'Estudiante Vigente';
+  if(s.includes('no califica'))return 'No Califica';
+  if(s.includes('molesto'))return 'Molesto';
+  if(s.includes('gratuidad'))return 'Gratuidad';
   return 'Otros';
 }
 function clasNoMat(s){
-  if(s.includes('indeciso'))          return 'Indeciso';
-  if(s.includes('evaluando'))         return 'Evaluando otra opción';
-  if(s.includes('documentacion')||s.includes('documentos')) return 'Falta Documentación';
-  if(s.includes('no viene')||s.includes('no asistio'))      return 'No Vino a Cita';
-  if(s.includes('economico')||s.includes('precio'))         return 'Motivo Económico';
-  if(s.includes('otro proceso'))      return 'Otro Proceso';
-  if(s.includes('volver'))            return 'Volver a Llamar';
+  if(s.includes('indeciso'))return 'Indeciso';
+  if(s.includes('evaluando'))return 'Evaluando otra opción';
+  if(s.includes('documentacion')||s.includes('documentos'))return 'Falta Documentación';
+  if(s.includes('no viene')||s.includes('no asistio'))return 'No Vino a Cita';
+  if(s.includes('economico')||s.includes('precio'))return 'Motivo Económico';
+  if(s.includes('otro proceso'))return 'Otro Proceso';
+  if(s.includes('volver'))return 'Volver a Llamar';
   return 'Otros';
 }
 
+/* ============================================================
+   PROYECCIONES — adaptadas al modo
+   ============================================================ */
+/* ============================================================
+   computeProyecciones — DUAL FECHA:
+   · Ritmo gestión (citas/recorridos) → Fecha Gestión
+   · Ritmo resultado (af/mat)         → Fecha Matrícula (REGLA CRÍTICA UDLA)
+   ============================================================ */
 function computeProyecciones(data){
   const k=computeKpis(data);
+  // Rango días para gestión
   let minD=null,maxD=null;
   data.forEach(row=>{const d=parseDate(getVal(row,'fecha'));if(d){if(!minD||d<minD)minD=d;if(!maxD||d>maxD)maxD=d;}});
-  const days=minD&&maxD?Math.max(1,Math.ceil((maxD-minD)/86400000)):30;
-  const rRec=k.total/days, rCita=k.cita/days, rAf=k.af/days, rMat=k.mat/days;
-  const left=Math.max(1,Math.round(30-days%30));
-  return[0.85,1.0,1.20].map((f,i)=>({
-    tipo:['Conservador','Esperado','Optimista'][i],
-    recorridos: Math.round(k.total+rRec*left*f),
-    citas:      Math.round(k.cita+rCita*left*f),
-    af:         Math.round(k.af+rAf*left*f),
-    mat:        Math.round(k.mat+rMat*left*f),
-    convFinal:  k.total>0?(Math.round(k.mat+rMat*left*f))/(Math.round(k.total+rRec*left*f))*100:0,
-  }));
+  const daysGes=minD&&maxD?Math.max(1,Math.ceil((maxD-minD)/86400000)):30;
+  // Rango días para matrícula (REGLA CRÍTICA: ritmo af/mat por Fecha Matrícula)
+  let minDm=null,maxDm=null;
+  data.forEach(row=>{
+    if(esAfluencia(row)){
+      const dm=parseDate(getVal(row,'fechamat')||getVal(row,'fecha'));
+      if(dm){if(!minDm||dm<minDm)minDm=dm;if(!maxDm||dm>maxDm)maxDm=dm;}
+    }
+  });
+  const daysMat=minDm&&maxDm?Math.max(1,Math.ceil((maxDm-minDm)/86400000)):daysGes;
+  const left=Math.max(1,Math.round(30-daysGes%30));
+
+  if(FILE_TYPE==='citas'){
+    const rCitas=k.total/daysGes, rAf=k.af/daysMat, rMat=k.mat/daysMat;
+    return[0.85,1.0,1.20].map((f,i)=>({
+      tipo:['Conservador','Esperado','Optimista'][i],
+      citas:  Math.round(k.total+rCitas*left*f),
+      af:     Math.round(k.af+rAf*left*f),
+      mat:    Math.round(k.mat+rMat*left*f),
+      convFinal: k.total>0?(Math.round(k.mat+rMat*left*f))/(Math.round(k.total+rCitas*left*f))*100:0,
+    }));
+  } else {
+    const rRec=k.total/daysGes, rCita=(k.cita||0)/daysGes, rAf=k.af/daysMat, rMat=k.mat/daysMat;
+    return[0.85,1.0,1.20].map((f,i)=>({
+      tipo:['Conservador','Esperado','Optimista'][i],
+      citas: Math.round(k.total+rRec*left*f),
+      af:    Math.round(k.af+rAf*left*f),
+      mat:   Math.round(k.mat+rMat*left*f),
+      convFinal: k.total>0?(Math.round(k.mat+rMat*left*f))/(Math.round(k.total+rRec*left*f))*100:0,
+    }));
+  }
 }
 
+/* ============================================================
+   INSIGHTS — adaptados al modo
+   ============================================================ */
 function computeInsights(data){
   const k=computeKpis(data);
   const byAgente=computeByField(data,'agente',30);
   const byCarrera=computeByField(data,'carrera',30);
   const out=[];
-  // Contactabilidad
-  const sCont=semaforo(k.contactabilidad,META.contactabilidad);
-  if(sCont==='verde') out.push({tipo:'hallazgo',titulo:'Contactabilidad sobre meta',detalle:k.contactabilidad.toFixed(1)+'% (meta '+META.contactabilidad+'%). Buena calidad de base.'});
-  else out.push({tipo:'riesgo',titulo:'Contactabilidad bajo meta',detalle:k.contactabilidad.toFixed(1)+'% vs meta '+META.contactabilidad+'%. Revisar base de datos y horarios.'});
-  // Cita→AF
-  const sCitaAf=semaforo(k.convCitaAf,META.convCitaAf);
-  if(sCitaAf!=='verde') out.push({tipo:'riesgo',titulo:'Pérdida Cita → Afluencia',detalle:k.convCitaAf.toFixed(1)+'% (meta '+META.convCitaAf+'%). Prospectos no están llegando a la cita.'});
-  // AF→Mat
-  const sAfMat=semaforo(k.convAfMat,META.convAfMat);
-  if(sAfMat==='verde') out.push({tipo:'hallazgo',titulo:'Excelente cierre AF→Matrícula',detalle:k.convAfMat.toFixed(1)+'% de afluencias se matriculan (meta '+META.convAfMat+'%).'});
-  else out.push({tipo:'riesgo',titulo:'Bajo cierre AF→Matrícula',detalle:k.convAfMat.toFixed(1)+'% (meta '+META.convAfMat+'%). Reforzar seguimiento post-visita.'});
-  // Top agente
-  if(byAgente.length>0){
-    const top=byAgente[0];
-    out.push({tipo:'hallazgo',titulo:'Top agente: '+top.k,detalle:top.mat+' matrículas · '+top.contactabilidad.toFixed(0)+'% contactabilidad · '+top.convAfMat.toFixed(0)+'% conv AF→Mat.'});
+
+  if(FILE_TYPE==='citas'){
+    // No Show
+    const nsRate=k.noShowRate||0;
+    const sNS=nsRate<=META_CITAS.noShowMax?'verde':nsRate<=META_CITAS.noShowMax*1.2?'amarillo':'rojo';
+    if(sNS==='verde') out.push({tipo:'hallazgo',titulo:'No Show bajo control',detalle:nsRate.toFixed(1)+'% (meta ≤'+META_CITAS.noShowMax+'%). Buen seguimiento pre-cita.'});
+    else out.push({tipo:'riesgo',titulo:'Tasa de No Show elevada',detalle:nsRate.toFixed(1)+'% (meta ≤'+META_CITAS.noShowMax+'%). Implementar recordatorios automáticos.'});
+    // Cita→AF
+    const sCitaAf=semaforo(k.convCitaAf,META_CITAS.convCitaAf);
+    if(sCitaAf!=='verde') out.push({tipo:'riesgo',titulo:'Conversión Cita → Afluencia bajo meta',detalle:k.convCitaAf.toFixed(1)+'% (meta '+META_CITAS.convCitaAf+'%). Muchos prospectos no asisten.'});
+    else out.push({tipo:'hallazgo',titulo:'Afluencia sobre meta',detalle:k.convCitaAf.toFixed(1)+'% de citas se convierten en afluencia (meta '+META_CITAS.convCitaAf+'%).'});
+    // AF→Mat
+    const sAfMat=semaforo(k.convAfMat,META_CITAS.convAfMat);
+    if(sAfMat==='verde') out.push({tipo:'hallazgo',titulo:'Excelente cierre AF→Matrícula',detalle:k.convAfMat.toFixed(1)+'% de afluencias se matriculan (meta '+META_CITAS.convAfMat+'%).'});
+    else out.push({tipo:'riesgo',titulo:'Bajo cierre AF→Matrícula',detalle:k.convAfMat.toFixed(1)+'% (meta '+META_CITAS.convAfMat+'%). Reforzar argumentario en cita presencial.'});
+    // Pendientes
+    if(k.pendiente>0) out.push({tipo:'oportunidad',titulo:k.pendiente.toLocaleString('es-CL')+' citas sin resolución final',detalle:'Reactivar seguimiento con llamada o WhatsApp para cerrar pipeline abierto.'});
+    // Top propietario
+    if(byAgente.length>0){const top=byAgente[0];out.push({tipo:'hallazgo',titulo:'Top propietario: '+top.k,detalle:top.mat+' matrículas · '+top.convCitaAf.toFixed(0)+'% Cita→AF · '+top.convAfMat.toFixed(0)+'% AF→Mat.'});}
+    // Propietarios bajo rendimiento
+    const rojos=byAgente.filter(a=>a.total>=5&&semaforo(a.convAfMat,META_CITAS.convAfMat)==='rojo');
+    if(rojos.length>0) out.push({tipo:'riesgo',titulo:rojos.length+' propietario(s) bajo meta AF→Mat',detalle:rojos.slice(0,3).map(a=>a.k).join(', ')+' requieren coaching de cierre.'});
+    // Carreras
+    const avg=byCarrera.length>0?byCarrera.reduce((s,c)=>s+c.convFinal,0)/byCarrera.length:0;
+    const altasBajas=byCarrera.filter(c=>c.total>k.total*0.03&&c.convFinal<avg*0.6);
+    if(altasBajas.length>0) out.push({tipo:'oportunidad',titulo:'Carreras con alta demanda y baja conversión',detalle:altasBajas.slice(0,3).map(c=>c.k.substring(0,30)).join(', ')+'. Revisar argumentario de cierre.'});
+    out.push({tipo:'recomendacion',titulo:'Recordatorios pre-cita',detalle:'Enviar WhatsApp/SMS 24h y 2h antes para reducir No Show de '+nsRate.toFixed(1)+'% actual.'});
+  } else {
+    // GESTIÓN CC
+    const sCont=semaforo(k.contactabilidad||0,META_GESTION.contactabilidad);
+    if(sCont==='verde') out.push({tipo:'hallazgo',titulo:'Contactabilidad sobre meta',detalle:(k.contactabilidad||0).toFixed(1)+'% (meta '+META_GESTION.contactabilidad+'%).'});
+    else out.push({tipo:'riesgo',titulo:'Contactabilidad bajo meta',detalle:(k.contactabilidad||0).toFixed(1)+'% vs meta '+META_GESTION.contactabilidad+'%.'});
+    const sCitaAf=semaforo(k.convCitaAf||0,META_GESTION.convCitaAf);
+    if(sCitaAf!=='verde') out.push({tipo:'riesgo',titulo:'Pérdida Cita → Afluencia',detalle:(k.convCitaAf||0).toFixed(1)+'% (meta '+META_GESTION.convCitaAf+'%).'});
+    const sAfMat=semaforo(k.convAfMat||0,META_GESTION.convAfMat);
+    if(sAfMat==='verde') out.push({tipo:'hallazgo',titulo:'Excelente cierre AF→Matrícula',detalle:(k.convAfMat||0).toFixed(1)+'%.'});
+    else out.push({tipo:'riesgo',titulo:'Bajo cierre AF→Matrícula',detalle:(k.convAfMat||0).toFixed(1)+'% (meta '+META_GESTION.convAfMat+'%).'});
+    if(byAgente.length>0){const top=byAgente[0];out.push({tipo:'hallazgo',titulo:'Top agente: '+top.k,detalle:top.mat+' matrículas.'});}
+    out.push({tipo:'recomendacion',titulo:'Pipeline disponible',detalle:((k.cont||0)-(k.cita||0)).toLocaleString('es-CL')+' contactados sin cita para reactivar.'});
   }
-  // Agentes bajo rendimiento
-  const rojos=byAgente.filter(a=>a.total>=5&&(semaforo(a.contactabilidad,META.contactabilidad)==='rojo'||semaforo(a.convAfMat,META.convAfMat)==='rojo'));
-  if(rojos.length>0) out.push({tipo:'riesgo',titulo:rojos.length+' agente(s) bajo meta crítica',detalle:rojos.slice(0,3).map(a=>a.k).join(', ')+' requieren coaching.'});
-  // Carreras alta demanda / baja conversión
-  const avg=byCarrera.length>0?byCarrera.reduce((s,c)=>s+c.convFinal,0)/byCarrera.length:0;
-  const altasBajas=byCarrera.filter(c=>c.total>k.total*0.03&&c.convFinal<avg*0.6);
-  if(altasBajas.length>0) out.push({tipo:'oportunidad',titulo:'Carreras: alta demanda / baja conversión',detalle:altasBajas.slice(0,3).map(c=>c.k.substring(0,30)).join(', ')+'. Revisar argumentario.'});
-  // Recomendaciones
-  if(k.convContCita<META.convContCita*0.8) out.push({tipo:'recomendacion',titulo:'Mejorar conversión Contactado → Cita',detalle:k.convContCita.toFixed(1)+'% (meta '+META.convContCita+'%). Revisar discurso de llamada y training.'});
-  out.push({tipo:'recomendacion',titulo:'Pipeline potencial disponible',detalle:(k.cont-k.cita).toLocaleString('es-CL')+' contactados sin cita pueden ser reactivados con seguimiento activo.'});
   return out;
 }
 
@@ -944,29 +1217,48 @@ function stackedVBar(labels,datasets){
 
 function renderChartAgente(data){
   const e=computeByField(data,'agente',12);
-  const lb=e.map(x=>x.k.length>20?x.k.substring(0,20)+'…':x.k);
-  renderChart('chart-agente',stackedHBar(lb,[
-    {label:'Matrículas (M+MC)', data:e.map(x=>x.mat), backgroundColor:C.green,  borderRadius:2},
-    {label:'Afluencia (A)',     data:e.map(x=>x.af-x.mat),  backgroundColor:C.purple, borderRadius:2},
-    {label:'Citas sin AF',     data:e.map(x=>x.cita-x.af), backgroundColor:C.orange, borderRadius:2},
-    {label:'Contactados/Cita', data:e.map(x=>x.cont-x.cita),backgroundColor:'#D1D5DB',borderRadius:2},
-  ]));
+  const lb=e.map(x=>x.k.length>22?x.k.substring(0,22)+'…':x.k);
+  if(FILE_TYPE==='citas'){
+    renderChart('chart-agente',stackedHBar(lb,[
+      {label:'Matrículas (M+MC)', data:e.map(x=>x.mat),       backgroundColor:C.green,  borderRadius:2},
+      {label:'Afluencia (A)',     data:e.map(x=>x.af-x.mat),  backgroundColor:C.purple, borderRadius:2},
+      {label:'No Show',           data:e.map(x=>{let ns=0;data.filter(r=>(getVal(r,'agente')||'Sin dato')===x.k).forEach(r=>{if(esNoShow(r))ns++;});return ns;}), backgroundColor:'rgba(239,68,68,.5)', borderRadius:2},
+      {label:'En Proceso',        data:e.map(x=>Math.max(0,x.total-x.af-Math.round(x.total*0.404))), backgroundColor:'#E5E7EB', borderRadius:2},
+    ]));
+  } else {
+    renderChart('chart-agente',stackedHBar(lb,[
+      {label:'Matrículas (M+MC)', data:e.map(x=>x.mat),        backgroundColor:C.green,  borderRadius:2},
+      {label:'Afluencia (A)',     data:e.map(x=>x.af-x.mat),   backgroundColor:C.purple, borderRadius:2},
+      {label:'Citas sin AF',      data:e.map(x=>x.cita-x.af),  backgroundColor:C.orange, borderRadius:2},
+      {label:'Contactados/Cita',  data:e.map(x=>x.cont-x.cita),backgroundColor:'#D1D5DB',borderRadius:2},
+    ]));
+  }
 }
 
 function renderChartSeguimiento(data){
-  const e=computeSeguimiento(data).slice(0,12);
+  // Para Citas CRM: usa Ultimo Interés Cierre; para CC: usa Seguimiento
+  const field=FILE_TYPE==='citas'?'interescierre':'seguimiento';
+  const counts={};
+  data.forEach(row=>{const v=getVal(row,field)||'Sin dato';counts[v]=(counts[v]||0)+1;});
+  const e=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
   const total=e.reduce((s,[,n])=>s+n,0);
-  renderChart('chart-seguimiento',{type:'doughnut',data:{labels:e.map(([k])=>k.length>28?k.substring(0,28)+'…':k),datasets:[{data:e.map(([,n])=>n),backgroundColor:C.palette,borderWidth:2,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:true,cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:9,font:{size:8}}},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+' ('+( ctx.raw/total*100).toFixed(1)+'%)'}}}}});
+  const titulo=FILE_TYPE==='citas'?'Último Interés Cierre (Referente a) (Contacto)':'Seguimiento';
+  renderChart('chart-seguimiento',{type:'doughnut',data:{labels:e.map(([k])=>k.length>30?k.substring(0,30)+'…':k),datasets:[{data:e.map(([,n])=>n),backgroundColor:C.palette,borderWidth:2,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:true,cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:9,font:{size:8}}},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+' ('+(ctx.raw/total*100).toFixed(1)+'%)'}}},title:{display:true,text:titulo,font:{size:9}}}}});
 }
 
 function _temporalCfg(data){
   const{labels,pts}=computeTemporal(data);
-  return{type:'line',data:{labels,datasets:[
-    {label:'Recorridos', data:pts.map(p=>p.total),  borderColor:C.gray,   backgroundColor:'rgba(43,45,66,.08)',  fill:true,tension:.35,pointRadius:3,borderWidth:2},
-    {label:'Citas',      data:pts.map(p=>p.cita),   borderColor:C.orange, backgroundColor:'rgba(244,114,30,.08)',fill:true,tension:.35,pointRadius:3,borderWidth:2},
-    {label:'Afluencia',  data:pts.map(p=>p.af),     borderColor:C.purple, backgroundColor:'rgba(124,58,237,.08)',fill:true,tension:.35,pointRadius:3,borderWidth:2},
-    {label:'Matrículas', data:pts.map(p=>p.mat),    borderColor:C.green,  backgroundColor:'rgba(34,197,94,.1)',  fill:true,tension:.35,pointRadius:4,borderWidth:2.5},
-  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}},tooltip:{mode:'index',intersect:false}},scales:{x:{ticks:{font:{size:8},maxRotation:35}},y:{beginAtZero:true,grid:{color:'#F0F0F5'},ticks:{font:{size:8}}}}}};
+  const datasets=FILE_TYPE==='citas'?[
+    {label:'Total Citas',data:pts.map(p=>p.total),backgroundColor:'rgba(43,45,66,.55)',  borderRadius:3,borderSkipped:false},
+    {label:'Afluencia',  data:pts.map(p=>p.af),   backgroundColor:'rgba(124,58,237,.75)',borderRadius:3,borderSkipped:false},
+    {label:'Matrículas', data:pts.map(p=>p.mat),  backgroundColor:C.green,               borderRadius:3,borderSkipped:false},
+  ]:[
+    {label:'Recorridos',data:pts.map(p=>p.total),backgroundColor:'rgba(43,45,66,.45)',  borderRadius:3,borderSkipped:false},
+    {label:'Citas',     data:pts.map(p=>p.cita), backgroundColor:'rgba(244,114,30,.75)',borderRadius:3,borderSkipped:false},
+    {label:'Afluencia', data:pts.map(p=>p.af),   backgroundColor:'rgba(124,58,237,.75)',borderRadius:3,borderSkipped:false},
+    {label:'Matrículas',data:pts.map(p=>p.mat),  backgroundColor:C.green,               borderRadius:3,borderSkipped:false},
+  ];
+  return{type:'bar',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}},tooltip:{mode:'index',intersect:false}},scales:{x:{ticks:{font:{size:8},maxRotation:35}},y:{beginAtZero:true,grid:{color:'#F0F0F5'},ticks:{font:{size:8}}}}}};
 }
 function renderChartTemporal(data){renderChart('chart-temporal',_temporalCfg(data));}
 function renderChartTemporal2(data){renderChart('chart-temporal-2',_temporalCfg(data));}
@@ -975,9 +1267,9 @@ function renderChartRegimen(data){
   const e=computeByField(data,'regimen',8).sort((a,b)=>b.total-a.total);
   const lb=e.map(x=>x.k.length>22?x.k.substring(0,22)+'…':x.k);
   renderChart('chart-regimen',stackedVBar(lb,[
-    {label:'Matrículas',data:e.map(x=>x.mat),backgroundColor:C.green,  borderRadius:2},
-    {label:'Afluencia', data:e.map(x=>x.af-x.mat), backgroundColor:C.purple,borderRadius:2},
-    {label:'Citas',     data:e.map(x=>x.cita-x.af),backgroundColor:C.orange,borderRadius:2},
+    {label:'Matrículas',data:e.map(x=>x.mat),backgroundColor:C.green,borderRadius:2},
+    {label:'Afluencia', data:e.map(x=>x.af-x.mat),backgroundColor:C.purple,borderRadius:2},
+    {label:'Resto',     data:e.map(x=>x.total-x.af),backgroundColor:'#E5E7EB',borderRadius:2},
   ]));
 }
 function renderChartRegimen2(data){
@@ -986,19 +1278,18 @@ function renderChartRegimen2(data){
   renderChart('chart-regimen-2',stackedVBar(lb,[
     {label:'Matrículas',data:e.map(x=>x.mat),backgroundColor:C.green,borderRadius:2},
     {label:'Afluencia', data:e.map(x=>x.af-x.mat),backgroundColor:C.purple,borderRadius:2},
-    {label:'Citas',     data:e.map(x=>x.cita-x.af),backgroundColor:C.orange,borderRadius:2},
-    {label:'Contactados/Cita',data:e.map(x=>x.cont-x.cita),backgroundColor:'#D1D5DB',borderRadius:2},
+    {label:'Resto',     data:e.map(x=>x.total-x.af),backgroundColor:'#E5E7EB',borderRadius:2},
   ]));
 }
 
 function renderChartBase(data){
   const e=computeByField(data,'base',8).sort((a,b)=>b.total-a.total);
   const lb=e.map(x=>x.k.length>18?x.k.substring(0,18)+'…':x.k);
-  renderChart('chart-base',stackedVBar(lb,[
-    {label:'Matrículas',data:e.map(x=>x.mat),backgroundColor:C.green,borderRadius:2},
-    {label:'Afluencia', data:e.map(x=>x.af-x.mat),backgroundColor:C.purple,borderRadius:2},
-    {label:'Citas',     data:e.map(x=>x.cita-x.af),backgroundColor:C.orange,borderRadius:2},
-  ]));
+  renderChart('chart-base',{type:'bar',data:{labels:lb,datasets:[
+    {label:'Total',      data:e.map(x=>x.total),backgroundColor:'rgba(43,45,66,.35)',  borderRadius:3,borderSkipped:false},
+    {label:'Afluencia',  data:e.map(x=>x.af),   backgroundColor:'rgba(124,58,237,.75)',borderRadius:3,borderSkipped:false},
+    {label:'Matrículas', data:e.map(x=>x.mat),  backgroundColor:C.green,               borderRadius:3,borderSkipped:false},
+  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}},tooltip:{mode:'index',intersect:false}},scales:{x:{ticks:{font:{size:9},maxRotation:40}},y:{beginAtZero:true,grid:{color:'#F0F0F5'},ticks:{font:{size:8}}}}}});
 }
 function renderChartBase2(data){
   const e=computeByField(data,'base',8).sort((a,b)=>b.total-a.total);
@@ -1205,73 +1496,103 @@ function renderTableBase(data){
 }
 
 function renderTableCausa(data){
-  const{noCita,noMat}=computeCausaRaiz(data);
+  const{noCita,noMat,segCierre}=computeCausaRaiz(data);
   const el=document.getElementById('table-causa');if(!el)return;
-  const toRows=(arr,label)=>arr.slice(0,10).map(x=>'<tr><td style="font-size:11px">'+x.c+'</td><td style="text-align:center;font-weight:700">'+x.n.toLocaleString('es-CL')+'</td><td>'+barHTML(x.pct,100,C.orange)+'</td></tr>').join('');
-  el.innerHTML=
-    '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Por qué NO se agenda Cita (Contactado → Cita)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>% del total no-cita</th></tr></thead><tbody>'+toRows(noCita,'noCita')+'</tbody></table>'+
-    '<table class="dtable"><thead><tr><th colspan="3">Por qué NO hay Matrícula (Afluencia → Matrícula)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>% del total no-mat.</th></tr></thead><tbody>'+toRows(noMat,'noMat')+'</tbody></table>';
+  const toRows=arr=>arr.slice(0,12).map(x=>'<tr><td style="font-size:11px">'+x.c+'</td><td style="text-align:center;font-weight:700">'+x.n.toLocaleString('es-CL')+'</td><td>'+barHTML(x.pct,100,C.orange)+'</td></tr>').join('');
+  if(FILE_TYPE==='citas'){
+    el.innerHTML=
+      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Ultimo Interes Cierre — Por que NO hay Afluencia</th></tr><tr><th>Estado (Referente a)</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noCita)+'</tbody></table>'+
+      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Por que NO hay Matricula (Afluencia -> Matricula)</th></tr><tr><th>Causa (Seguimiento Cierre)</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noMat)+'</tbody></table>'+
+      (segCierre.length?'<table class="dtable"><thead><tr><th colspan="3">Seguimiento Cierre — Distribucion General</th></tr><tr><th>Seguimiento</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(segCierre)+'</tbody></table>':'');
+  } else {
+    el.innerHTML=
+      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Por que NO se agenda Cita (Contactado -> Cita)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noCita)+'</tbody></table>'+
+      '<table class="dtable"><thead><tr><th colspan="3">Por que NO hay Matricula (Afluencia -> Matricula)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noMat)+'</tbody></table>';
+  }
 }
 
 /* ============================================================
-   KPIs + SEMÁFORO
+   KPIs + SEMAFORO — modo dual Citas CRM / Gestion CC
    ============================================================ */
 function renderKpis(data){
   const k=computeKpis(data);
-  document.getElementById('kpi-total').textContent=k.total.toLocaleString('es-CL');
-  document.getElementById('kpi-cont').textContent=k.cont.toLocaleString('es-CL');
-  document.getElementById('ks-cont').textContent=k.noCont.toLocaleString('es-CL')+' no contactados';
-  document.getElementById('kpi-cita').textContent=k.cita.toLocaleString('es-CL');
-  document.getElementById('kpi-af').textContent=k.af.toLocaleString('es-CL');
-  document.getElementById('kpi-mat').textContent=k.mat.toLocaleString('es-CL');
-  document.getElementById('kpi-contactabilidad').textContent=k.contactabilidad.toFixed(1)+'%';
-  document.getElementById('kpi-cc').textContent=k.convContCita.toFixed(1)+'%';
-  document.getElementById('kpi-ca').textContent=k.convCitaAf.toFixed(1)+'%';
-  document.getElementById('kpi-am').textContent=k.convAfMat.toFixed(1)+'%';
+  const isCitas=FILE_TYPE==='citas';
 
-  // Flechas del embudo
-  document.getElementById('fa-cont').textContent=k.contactabilidad.toFixed(1)+'%';
-  document.getElementById('fa-cita').textContent=k.convContCita.toFixed(1)+'%';
-  document.getElementById('fa-af').textContent=k.convCitaAf.toFixed(1)+'%';
-  document.getElementById('fa-mat').textContent=k.convAfMat.toFixed(1)+'%';
+  document.getElementById('funnel-citas').style.display=isCitas?'flex':'none';
+  document.getElementById('funnel-gestion').style.display=isCitas?'none':'flex';
+  document.getElementById('conv-row-citas').style.display=isCitas?'grid':'none';
+  document.getElementById('conv-row-gestion').style.display=isCitas?'none':'grid';
 
-  // Semáforos
-  const apply=(id,barId,val,meta)=>{
-    const s=semaforo(val,meta);
-    const el=document.getElementById(id),bar=document.getElementById(barId);
-    if(el){el.textContent=SEMIC[s]+' '+SEMLAB[s]+' (meta '+meta+'%)';el.style.color=SEMCOL[s];}
-    if(bar){bar.style.width=Math.min(val/meta*100,100)+'%';bar.style.background=SEMCOL[s];}
-    const card=document.getElementById(id.replace('ksem-','kc-'));
-    if(card)card.style.borderLeftColor=SEMCOL[s];
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const sem=(semId,barId,val,meta,inverso)=>{
+    const sv=inverso?(val<=meta?'verde':val<=meta*1.2?'amarillo':'rojo'):semaforo(val,meta);
+    const el=document.getElementById(semId),bar=document.getElementById(barId);
+    if(el){el.textContent=SEMIC[sv]+' '+val.toFixed(1)+'% (meta '+(inverso?'<='  :'')+meta+'%)';el.style.color=SEMCOL[sv];}
+    if(bar){bar.style.width=Math.min(inverso?(meta/Math.max(val,0.1)*100):val/meta*100,100)+'%';bar.style.background=SEMCOL[sv];}
   };
-  apply('ksem-cont','kb-cont',k.contactabilidad,META.contactabilidad);
-  apply('ksem-cita','kb-cita',k.convContCita,META.convContCita);
-  apply('ksem-af','kb-af',k.convCitaAf,META.convCitaAf);
-  apply('ksem-mat','kb-mat',k.convAfMat,META.convAfMat);
-  const sContactab=semaforo(k.contactabilidad,META.contactabilidad);
-  const sConta=document.getElementById('ksem-contactabilidad');
-  if(sConta){sConta.textContent=SEMIC[sContactab]+' '+SEMLAB[sContactab];sConta.style.color=SEMCOL[sContactab];}
-  const kbC=document.getElementById('kb-contactabilidad');
-  if(kbC){kbC.style.width=Math.min(k.contactabilidad/META.contactabilidad*100,100)+'%';kbC.style.background=SEMCOL[sContactab];}
-  const kbCC=document.getElementById('kb-cc');
-  if(kbCC){const s=semaforo(k.convContCita,META.convContCita);kbCC.style.width=Math.min(k.convContCita/META.convContCita*100,100)+'%';kbCC.style.background=SEMCOL[s];const el=document.getElementById('ksem-cc');if(el){el.textContent=SEMIC[s]+' '+SEMLAB[s];el.style.color=SEMCOL[s];}}
 
-  document.getElementById('records-badge').textContent=k.total.toLocaleString('es-CL')+' de '+DATA.length.toLocaleString('es-CL')+' registros';
-
-  // Semáforo global
-  const byCont=computeByField(data,'agente',30);
-  const avgCont=byCont.length>0?byCont.reduce((s,x)=>s+x.contactabilidad,0)/byCont.length:0;
-  document.getElementById('semaforo-bar').innerHTML=[
-    {l:'Contactabilidad global',val:k.contactabilidad,meta:META.contactabilidad},
-    {l:'Conv Cont→Cita',val:k.convContCita,meta:META.convContCita},
-    {l:'Conv Cita→AF',val:k.convCitaAf,meta:META.convCitaAf},
-    {l:'Conv AF→Mat',val:k.convAfMat,meta:META.convAfMat},
-    {l:'Conv Final Lead→Mat',val:k.convFinal,meta:1.0},
-    {l:'Agentes prom.',val:avgCont,meta:META.contactabilidad},
-  ].map(item=>{
-    const s=semaforo(item.val,item.meta);
-    return'<div class="sem-item"><div class="sem-dot" style="background:'+SEMCOL[s]+';box-shadow:0 0 4px '+SEMCOL[s]+'"></div>'+item.l+': '+SEMIC[s]+' '+item.val.toFixed(1)+'%</div>';
-  }).join('');
+  if(isCitas){
+    s('kpi-total',      k.total.toLocaleString('es-CL'));
+    s('kpi-noshow',     k.noShow.toLocaleString('es-CL'));
+    s('kpi-af-c',       k.af.toLocaleString('es-CL'));
+    s('kpi-mat-c',      k.mat.toLocaleString('es-CL'));
+    s('kpi-pend',       k.pendiente.toLocaleString('es-CL'));
+    s('fa-noshow',      k.noShowRate.toFixed(1)+'%');
+    s('fa-af-c',        k.convCitaAf.toFixed(1)+'%');
+    s('fa-mat-c',       k.convAfMat.toFixed(1)+'%');
+    s('kpi-noshow-rate',k.noShowRate.toFixed(1)+'%');
+    s('kpi-ca-c',       k.convCitaAf.toFixed(1)+'%');
+    s('kpi-am-c',       k.convAfMat.toFixed(1)+'%');
+    s('kpi-cf-c',       k.convFinal.toFixed(2)+'%');
+    sem('ksem-noshow','kb-noshow',k.noShowRate,META_CITAS.noShowMax,true);
+    sem('ksem-af-c','kb-af-c',k.convCitaAf,META_CITAS.convCitaAf,false);
+    sem('ksem-mat-c','kb-mat-c',k.convAfMat,META_CITAS.convAfMat,false);
+    sem('ksem-nsr','kb-nsr',k.noShowRate,META_CITAS.noShowMax,true);
+    sem('ksem-ca-c','kb-ca-c',k.convCitaAf,META_CITAS.convCitaAf,false);
+    sem('ksem-am-c','kb-am-c',k.convAfMat,META_CITAS.convAfMat,false);
+    const kbcf=document.getElementById('kb-cf-c');if(kbcf)kbcf.style.width=Math.min(k.convFinal*10,100)+'%';
+    document.getElementById('semaforo-bar').innerHTML=[
+      {l:'No Show',val:k.noShowRate,meta:META_CITAS.noShowMax,inv:true},
+      {l:'Conv Cita->AF',val:k.convCitaAf,meta:META_CITAS.convCitaAf,inv:false},
+      {l:'Conv AF->Mat',val:k.convAfMat,meta:META_CITAS.convAfMat,inv:false},
+      {l:'Conv Final',val:k.convFinal,meta:10,inv:false},
+    ].map(item=>{
+      const sv=item.inv?(item.val<=item.meta?'verde':item.val<=item.meta*1.2?'amarillo':'rojo'):semaforo(item.val,item.meta);
+      return'<div class="sem-item"><div class="sem-dot" style="background:'+SEMCOL[sv]+';box-shadow:0 0 4px '+SEMCOL[sv]+'"></div>'+item.l+': '+SEMIC[sv]+' '+item.val.toFixed(1)+'%</div>';
+    }).join('');
+  } else {
+    s('kpi-total-g',(k.total||0).toLocaleString('es-CL'));
+    s('kpi-cont',(k.cont||0).toLocaleString('es-CL'));
+    s('ks-cont',(k.noCont||0).toLocaleString('es-CL')+' no contactados');
+    s('kpi-cita',(k.cita||0).toLocaleString('es-CL'));
+    s('kpi-af',k.af.toLocaleString('es-CL'));
+    s('kpi-mat',k.mat.toLocaleString('es-CL'));
+    s('kpi-contactabilidad',(k.contactabilidad||0).toFixed(1)+'%');
+    s('kpi-cc',(k.convContCita||0).toFixed(1)+'%');
+    s('kpi-ca',(k.convCitaAf||0).toFixed(1)+'%');
+    s('kpi-am',(k.convAfMat||0).toFixed(1)+'%');
+    s('fa-cont',(k.contactabilidad||0).toFixed(1)+'%');
+    s('fa-cita',(k.convContCita||0).toFixed(1)+'%');
+    s('fa-af',(k.convCitaAf||0).toFixed(1)+'%');
+    s('fa-mat',(k.convAfMat||0).toFixed(1)+'%');
+    sem('ksem-cont','kb-cont',k.contactabilidad||0,META_GESTION.contactabilidad,false);
+    sem('ksem-cita','kb-cita',k.convContCita||0,META_GESTION.convContCita,false);
+    sem('ksem-af','kb-af',k.convCitaAf||0,META_GESTION.convCitaAf,false);
+    sem('ksem-mat','kb-mat',k.convAfMat||0,META_GESTION.convAfMat,false);
+    sem('ksem-contactabilidad','kb-contactabilidad',k.contactabilidad||0,META_GESTION.contactabilidad,false);
+    sem('ksem-cc','kb-cc',k.convContCita||0,META_GESTION.convContCita,false);
+    sem('ksem-ca','kb-ca',k.convCitaAf||0,META_GESTION.convCitaAf,false);
+    sem('ksem-am','kb-am',k.convAfMat||0,META_GESTION.convAfMat,false);
+    document.getElementById('semaforo-bar').innerHTML=[
+      {l:'Contactabilidad',val:k.contactabilidad||0,meta:META_GESTION.contactabilidad},
+      {l:'Conv Cont->Cita',val:k.convContCita||0,meta:META_GESTION.convContCita},
+      {l:'Conv Cita->AF',val:k.convCitaAf||0,meta:META_GESTION.convCitaAf},
+      {l:'Conv AF->Mat',val:k.convAfMat||0,meta:META_GESTION.convAfMat},
+    ].map(item=>{const sv=semaforo(item.val,item.meta);return'<div class="sem-item"><div class="sem-dot" style="background:'+SEMCOL[sv]+';box-shadow:0 0 4px '+SEMCOL[sv]+'"></div>'+item.l+': '+SEMIC[sv]+' '+item.val.toFixed(1)+'%</div>';}).join('');
+  }
+  document.getElementById('records-badge').textContent=
+    k.total.toLocaleString('es-CL')+' de '+DATA.length.toLocaleString('es-CL')+
+    ' reg. · '+(isCitas?'Modo Citas CRM':'Modo Gestion CC');
 }
 
 /* ============================================================
