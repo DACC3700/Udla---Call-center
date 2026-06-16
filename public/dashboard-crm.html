@@ -600,11 +600,13 @@ let FILE_TYPE = 'citas';
 /* ============================================================
    ESTADO GLOBAL
    ============================================================ */
-let DATA   = [];
-let COLS   = {};
-let FIL    = {};
-let CHARTS = {};
-let PAG    = {};          // {tableId: currentPage}
+let DATA     = [];
+let COLS     = {};
+let FIL      = {};
+let CHARTS   = {};
+let PAG      = {};        // {tableId: currentPage}
+// ⚠️ REGLA CRÍTICA: dataset af/mat filtrado por Fecha Matrícula (no por Mes gestión)
+let AF_DATA  = null;      // null = usar mismo dataset que gestión (sin filtro mes activo)
 const PAGE_SIZE = 50;     // filas por página en tablas grandes
 
 /* ============================================================
@@ -886,6 +888,57 @@ function getFiltered(){
 }
 
 /* ============================================================
+   getFilteredAF — REGLA CRÍTICA UDLA:
+   Filtra af/mat por Fecha Matrícula (no por Mes gestión).
+   Aplica todos los filtros excepto mes/semana, que se
+   reemplazan por comparación contra Fecha Matrícula.
+   ============================================================ */
+const MES_NUM={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+const DATE_KEYS=new Set(['mes','semana']); // estos filtros se manejan por Fecha Matrícula
+
+function getFilteredAF(){
+  if(!COLS['fechamat']) return null; // sin columna Fecha Matrícula → usar mismo dataset
+  const activeMes = FIL['mes']  ||'all';
+  const activeSem = FIL['semana']||'all';
+  const hasMes    = activeMes!=='all';
+  const hasSem    = activeSem!=='all';
+  if(!hasMes && !hasSem) return null; // sin filtro de fecha → usar mismo dataset
+
+  const fd=document.getElementById('f-desde')?.value;
+  const fh=document.getElementById('f-hasta')?.value;
+
+  return DATA.filter(row=>{
+    // Filtros no-fecha (agente, base, regimen, carrera, suborigen, etc.)
+    for(const k of FILTER_KEYS){
+      if(DATE_KEYS.has(k)) continue; // mes/semana se manejan abajo
+      const v=FIL[k]||'all';
+      if(v!=='all'&&getVal(row,k)!==v) return false;
+    }
+    // Rango fecha gestión (f-desde / f-hasta) — aplica igual
+    if(fd||fh){
+      const d=parseDate(getVal(row,'fecha'));
+      if(d){
+        if(fd&&d<new Date(fd+'T00:00:00'))return false;
+        if(fh&&d>new Date(fh+'T23:59:59'))return false;
+      }
+    }
+    // ⚠️ REGLA CRÍTICA: mes → comparar contra Fecha Matrícula
+    if(hasMes){
+      const tm=MES_NUM[norm(activeMes)];
+      if(tm){
+        const dm=parseDate(getVal(row,'fechamat'));
+        if(!dm||(dm.getMonth()+1)!==tm) return false;
+      }
+    }
+    // Semana: sin Fecha Matrícula semanal exacta → usar columna semana como aproximación
+    if(hasSem){
+      if(getVal(row,'semana')!==activeSem) return false;
+    }
+    return true;
+  });
+}
+
+/* ============================================================
    METAS OFICIALES UDLA — se ajustan según tipo de archivo
    ============================================================ */
 const META_CITAS = {
@@ -906,15 +959,26 @@ let META = {...META_CITAS, ...META_GESTION};
    COMPUTACIONES — CITAS CRM y GESTIÓN CC
    ============================================================ */
 function computeKpis(data){
+  // ⚠️ REGLA CRÍTICA: af/mat se cuentan desde AF_DATA (Fecha Matrícula)
+  // si hay filtro de mes activo; de lo contrario, desde el mismo data
+  const afSource = AF_DATA || data;
   let cont=0,cita=0,af=0,mat=0,noShow=0,pendiente=0;
   data.forEach(row=>{
     if(isContactado(row)) cont++;
     if(tieneCita(row))    cita++;
-    if(esAfluencia(row))  af++;
-    if(esMatricula(row))  mat++;
     if(esNoShow(row))     noShow++;
     if(esPendiente(row))  pendiente++;
+    if(!AF_DATA){  // sin AF_DATA separado: contar af/mat aquí mismo
+      if(esAfluencia(row)) af++;
+      if(esMatricula(row)) mat++;
+    }
   });
+  if(AF_DATA){   // contar af/mat desde dataset por Fecha Matrícula
+    AF_DATA.forEach(row=>{
+      if(esAfluencia(row)) af++;
+      if(esMatricula(row)) mat++;
+    });
+  }
   const n=data.length;
 
   if(FILE_TYPE==='citas'){
@@ -979,35 +1043,41 @@ function computeSeguimiento(data){
 }
 
 /* ============================================================
-   computeTemporal — DUAL FECHA:
-   · Gestión (total / cont / cita) → Fecha de Gestión / Creación
-   · Resultado (af / mat)          → Fecha Matrícula  (REGLA CRÍTICA UDLA)
+   computeTemporal — DUAL FECHA (REGLA CRÍTICA UDLA):
+   · Gestión  (total / cont / cita) → Fecha Gestión / Creación
+   · Resultado (af / mat)           → Fecha Matrícula
+   IMPORTANTE: cuando existe fechamat se ignoran columnas Semana/Mes
+   y se usa siempre YYYY-MM para garantizar buckets compatibles.
    ============================================================ */
 function computeTemporal(data){
-  const bySem=!!COLS['semana'], byMes=!bySem&&!!COLS['mes'];
   const hasFechaMat=!!COLS['fechamat'];
+  // Si hay fechamat, SIEMPRE usar fechas reales YYYY-MM (nunca columnas Semana/Mes)
+  // → asegura que gestión y resultado usen el mismo formato de bucket
+  const bySem=!hasFechaMat&&!!COLS['semana'];
+  const byMes=!hasFechaMat&&!bySem&&!!COLS['mes'];
   const MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const p={};
 
-  // Label para indicadores de GESTIÓN (usa fecha gestión / semana / mes col)
+  const toYM=(d)=>d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;
+
+  // Label GESTIÓN → Fecha Gestión/Creación (YYYY-MM cuando hay fechamat)
   const gesLabel=(row)=>{
     if(bySem){const v=getVal(row,'semana');if(v)return String(v);}
     if(byMes){const v=getVal(row,'mes');if(v)return String(v);}
-    const d=parseDate(getVal(row,'fecha'));
-    return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;
+    return toYM(parseDate(getVal(row,'fecha')));
   };
-  // Label para indicadores de RESULTADO (usa Fecha Matrícula — REGLA CRÍTICA)
+  // Label RESULTADO → Fecha Matrícula (REGLA CRÍTICA — siempre YYYY-MM)
   const matLabel=(row)=>{
     if(hasFechaMat){
       const d=parseDate(getVal(row,'fechamat'));
-      if(d)return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      if(d)return toYM(d);
     }
-    return gesLabel(row); // fallback si no existe columna fecha matrícula
+    return gesLabel(row);
   };
   const ensure=(lbl)=>{if(lbl&&!p[lbl])p[lbl]={total:0,cont:0,cita:0,af:0,mat:0};};
 
   data.forEach(row=>{
-    // ── GESTIÓN: atribuir a Fecha Gestión / Creación ──
+    // GESTIÓN → Fecha Gestión/Creación
     const lg=gesLabel(row);
     if(lg){
       ensure(lg);
@@ -1015,7 +1085,7 @@ function computeTemporal(data){
       if(isContactado(row)) p[lg].cont++;
       if(tieneCita(row))    p[lg].cita++;
     }
-    // ── RESULTADO: atribuir a Fecha Matrícula ──
+    // RESULTADO → Fecha Matrícula
     if(esAfluencia(row)){
       const lm=matLabel(row)||lg;
       if(lm){
@@ -1027,15 +1097,15 @@ function computeTemporal(data){
   });
 
   const labels=Object.keys(p).sort((a,b)=>{
-    // Si usamos mes-texto (sin fechamat como YYYY-MM)
-    if(byMes&&!hasFechaMat){
+    if(byMes){
       const ai=MES.indexOf(norm(a)),bi=MES.indexOf(norm(b));
       return(ai===-1?99:ai)-(bi===-1?99:bi);
     }
-    // YYYY-MM o número de semana
-    const na=parseInt(a.replace(/\D/g,'')),nb=parseInt(b.replace(/\D/g,''));
-    if(!isNaN(na)&&!isNaN(nb))return na-nb;
-    return a.localeCompare(b);
+    if(bySem){
+      const na=parseInt(a.replace(/\D/g,'')),nb=parseInt(b.replace(/\D/g,''));
+      if(!isNaN(na)&&!isNaN(nb))return na-nb;
+    }
+    return a.localeCompare(b); // YYYY-MM ordena correctamente como string
   });
   return{labels,pts:labels.map(l=>p[l])};
 }
@@ -1637,6 +1707,8 @@ function renderAllDebounced(){
 
 function renderAll(){
   const data=getFiltered();
+  // ⚠️ REGLA CRÍTICA: calcular AF_DATA por Fecha Matrícula antes de cualquier render
+  AF_DATA = getFilteredAF();
   renderKpis(data);
   renderChartAgente(data);
   renderChartSeguimiento(data);
