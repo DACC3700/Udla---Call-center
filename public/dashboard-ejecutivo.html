@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard Ejecutivo CC – Admisión Directa UDLA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{--udla:#E8330A;--udla-dark:#C12A08;}
+  body{font-family:'Inter',system-ui,sans-serif;background:#F1F5F9}
+  .drop-active{border-color:#E8330A!important;background:#FFF5F3!important}
+  .chart-wrap{position:relative;height:220px}
+  .sem-v{color:#059669;font-weight:700} .sem-a{color:#D97706;font-weight:700} .sem-r{color:#DC2626;font-weight:700}
+  .bar-mini{display:inline-flex;align-items:center;gap:4px;min-width:80px}
+  .bar-track{flex:1;height:5px;background:#E2E8F0;border-radius:3px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:3px;transition:width .4s}
+  .kpi-card{transition:box-shadow .2s}
+  .kpi-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.10)}
+  input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer}
+  @media(max-width:640px){.chart-wrap{height:180px}}
+  #toast{position:fixed;bottom:20px;right:20px;z-index:9999;transform:translateY(60px);opacity:0;transition:.3s;pointer-events:none}
+  #toast.show{transform:translateY(0);opacity:1}
+  .meta-input{width:52px;border:1px solid #CBD5E1;border-radius:6px;padding:2px 6px;font-size:11px;text-align:center}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40">
+  <div class="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--udla)">
+        <span class="text-white font-black text-sm">U</span>
+      </div>
+      <div>
+        <div class="font-bold text-slate-800 text-sm leading-tight">Dashboard Ejecutivo · Call Center</div>
+        <div class="text-xs text-slate-400">Admisión Directa UDLA</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs text-slate-400" id="file-info">Sin archivo cargado</span>
+      <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition" style="background:var(--udla)" id="upload-btn">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Cargar archivo
+        <input type="file" accept=".xlsx,.xls,.csv" id="file-input" class="hidden">
+      </label>
+    </div>
+  </div>
+</header>
+
+<!-- DROP ZONE (visible when no data) -->
+<div id="drop-zone" class="max-w-screen-2xl mx-auto px-4 py-10">
+  <div class="border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center bg-white hover:border-red-400 transition cursor-pointer" id="drop-inner">
+    <div class="text-5xl mb-4">📊</div>
+    <p class="text-slate-600 font-semibold text-lg mb-1">Arrastra tu archivo Excel aquí</p>
+    <p class="text-slate-400 text-sm mb-4">Soporta XLSX, XLS y CSV · Funciona offline</p>
+    <label class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer" style="background:var(--udla)">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+      Seleccionar archivo
+    </label>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div id="loading" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-8 text-center shadow-2xl min-w-64">
+    <div class="w-10 h-10 border-4 border-red-200 border-t-red-500 rounded-full animate-spin mx-auto mb-4"></div>
+    <p class="font-semibold text-slate-700" id="load-msg">Procesando...</p>
+    <p class="text-xs text-slate-400 mt-1" id="load-sub"></p>
+  </div>
+</div>
+
+<!-- DASHBOARD CONTENT -->
+<div id="dash" class="hidden max-w-screen-2xl mx-auto px-4 pb-8 space-y-5">
+
+  <!-- METAS CONFIGURABLES + INFO -->
+  <div class="bg-white rounded-xl border border-slate-200 px-4 py-3 flex flex-wrap gap-4 items-center text-xs">
+    <span class="font-semibold text-slate-600">Metas:</span>
+    <label class="flex items-center gap-1 text-slate-500">Contactabilidad <input class="meta-input" id="m-cont" type="number" value="50" min="0" max="100">%</label>
+    <label class="flex items-center gap-1 text-slate-500">Cont→Cita <input class="meta-input" id="m-cc" type="number" value="22" min="0" max="100">%</label>
+    <label class="flex items-center gap-1 text-slate-500">Cita→AF <input class="meta-input" id="m-ca" type="number" value="20" min="0" max="100">%</label>
+    <label class="flex items-center gap-1 text-slate-500">AF→Mat <input class="meta-input" id="m-am" type="number" value="50" min="0" max="100">%</label>
+    <button id="btn-metas" class="px-2 py-1 rounded-lg text-xs font-bold text-white" style="background:var(--udla)">Aplicar metas</button>
+    <span class="ml-auto text-slate-400" id="col-hint"></span>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="bg-white rounded-xl border border-slate-200 p-3">
+    <div class="flex flex-wrap gap-2 items-center">
+      <span class="text-xs font-semibold text-slate-500 mr-1">Filtros:</span>
+      <input type="date" id="f-desde" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600">
+      <input type="date" id="f-hasta" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600">
+      <select id="f-ejecutivo" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 max-w-44"><option value="all">— Ejecutivo —</option></select>
+      <select id="f-carrera"   class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 max-w-44"><option value="all">— Carrera —</option></select>
+      <select id="f-regimen"   class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"><option value="all">— Régimen —</option></select>
+      <select id="f-campus"    class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"><option value="all">— Campus —</option></select>
+      <select id="f-base"      class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"><option value="all">— Tipo Base —</option></select>
+      <select id="f-mes"       class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"><option value="all">— Mes —</option></select>
+      <button id="btn-clear" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">✕ Limpiar</button>
+      <span class="ml-auto text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded-full" id="rec-badge"></span>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3">
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3 col-span-1">
+      <div class="text-xs text-slate-400 font-medium">Recorridos</div>
+      <div class="text-2xl font-black text-slate-700 mt-1" id="k-rec">—</div>
+      <div class="text-xs text-slate-400">Total base</div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3">
+      <div class="text-xs text-slate-400 font-medium">Contactados</div>
+      <div class="text-2xl font-black text-blue-600 mt-1" id="k-cont">—</div>
+      <div class="text-xs text-slate-400">Gestión efectiva</div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3" id="kc-cont">
+      <div class="text-xs text-slate-400 font-medium">Contactabilidad</div>
+      <div class="text-2xl font-black text-blue-600 mt-1" id="k-cont-pct">—</div>
+      <div class="mt-1.5"><div class="bar-track"><div class="bar-fill bg-blue-500" id="kb-cont" style="width:0%"></div></div></div>
+      <div class="text-xs mt-1" id="ks-cont"></div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3">
+      <div class="text-xs text-slate-400 font-medium">Citas</div>
+      <div class="text-2xl font-black mt-1" style="color:#F97316" id="k-cita">—</div>
+      <div class="text-xs text-slate-400">Interesa = Viene</div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3" id="kc-cc">
+      <div class="text-xs text-slate-400 font-medium">Conv Cont→Cita</div>
+      <div class="text-2xl font-black mt-1" style="color:#F97316" id="k-cc">—</div>
+      <div class="mt-1.5"><div class="bar-track"><div class="bar-fill" id="kb-cc" style="width:0%;background:#F97316"></div></div></div>
+      <div class="text-xs mt-1" id="ks-cc"></div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3">
+      <div class="text-xs text-slate-400 font-medium">Afluencias</div>
+      <div class="text-2xl font-black text-purple-600 mt-1" id="k-af">—</div>
+      <div class="text-xs text-slate-400">A + M + MC</div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3" id="kc-ca">
+      <div class="text-xs text-slate-400 font-medium">Conv Cita→AF</div>
+      <div class="text-2xl font-black text-purple-600 mt-1" id="k-ca">—</div>
+      <div class="mt-1.5"><div class="bar-track"><div class="bar-fill bg-purple-500" id="kb-ca" style="width:0%"></div></div></div>
+      <div class="text-xs mt-1" id="ks-ca"></div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3">
+      <div class="text-xs text-slate-400 font-medium">Matrículas</div>
+      <div class="text-2xl font-black text-emerald-600 mt-1" id="k-mat">—</div>
+      <div class="text-xs text-slate-400">M + MC</div>
+    </div>
+    <div class="kpi-card bg-white rounded-xl border border-slate-200 p-3" id="kc-am">
+      <div class="text-xs text-slate-400 font-medium">Conv AF→Mat</div>
+      <div class="text-2xl font-black text-emerald-600 mt-1" id="k-am">—</div>
+      <div class="mt-1.5"><div class="bar-track"><div class="bar-fill bg-emerald-500" id="kb-am" style="width:0%"></div></div></div>
+      <div class="text-xs mt-1" id="ks-am"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">Productividad por Ejecutivo</div>
+      <div class="chart-wrap"><canvas id="ch-prod"></canvas></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">Conversión por Ejecutivo</div>
+      <div class="chart-wrap"><canvas id="ch-conv"></canvas></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">Matrículas por Carrera</div>
+      <div class="chart-wrap"><canvas id="ch-carr"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">Conversión por Régimen</div>
+      <div class="chart-wrap"><canvas id="ch-reg"></canvas></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">Rendimiento por Tipo Base</div>
+      <div class="chart-wrap"><canvas id="ch-base"></canvas></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">Evolución Diaria</div>
+      <div class="chart-wrap"><canvas id="ch-tend"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLA EJECUTIVOS -->
+  <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div class="text-sm font-bold text-slate-700">Análisis por Ejecutivo</div>
+      <div class="flex gap-3 text-xs text-slate-500">
+        <span class="flex items-center gap-1"><span class="text-emerald-500 text-base">●</span> Cumple meta</span>
+        <span class="flex items-center gap-1"><span class="text-amber-400 text-base">●</span> En riesgo</span>
+        <span class="flex items-center gap-1"><span class="text-red-500 text-base">●</span> Bajo desempeño</span>
+      </div>
+    </div>
+    <div class="overflow-x-auto" id="tbl-exec"></div>
+  </div>
+
+  <!-- ANÁLISIS COMERCIAL -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">🎓 Top Carreras por Matrículas</div>
+      <div id="tbl-carr-top" class="overflow-x-auto"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">⚠️ Carreras con Menor Conversión</div>
+      <div id="tbl-carr-low" class="overflow-x-auto"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">📊 Regímenes — Mejor Conversión AF→Mat</div>
+      <div id="tbl-reg" class="overflow-x-auto"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="text-sm font-bold text-slate-700 mb-3">🎯 Tipo de Base — Mejor Rendimiento</div>
+      <div id="tbl-base" class="overflow-x-auto"></div>
+    </div>
+  </div>
+
+  <!-- CONCLUSIONES AUTOMÁTICAS -->
+  <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="text-sm font-bold text-slate-700 mb-4">💡 Conclusiones Automáticas</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" id="conclusiones"></div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="bg-slate-800 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-2xl border-l-4 border-orange-400"></div>
+
+<script>
+/* ================================================================
+   DASHBOARD EJECUTIVO CC – ADMISIÓN DIRECTA UDLA
+   Reglas de negocio:
+   · Contactados  : Interesa IN [Viene, No Viene, Volver a Llamar] ∪ Matrícula IN [A,M,MC]
+   · Citas        : Interesa = "Viene"
+   · Afluencia    : Matrícula IN [A, M, MC]  — atribuida a Fecha Matrícula
+   · Matrícula    : Matrícula IN [M, MC]      — atribuida a Fecha Matrícula
+   ================================================================ */
+
+/* ---- PALETA ---- */
+const C={
+  blue:'#3B82F6', orange:'#F97316', purple:'#8B5CF6', green:'#10B981',
+  red:'#EF4444', yellow:'#F59E0B', gray:'#6B7280', slate:'#94A3B8',
+  pal:['#3B82F6','#10B981','#F97316','#8B5CF6','#EF4444','#F59E0B','#06B6D4','#EC4899','#84CC16','#A78BFA'],
+};
+
+/* ---- ESTADO GLOBAL ---- */
+let DATA=[], COLS={}, FIL={}, CHARTS={}, AF_DATA=null;
+const FILTER_KEYS=['ejecutivo','carrera','regimen','campus','base','mes'];
+const MES_NUM={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+
+/* ---- METAS (editables) ---- */
+let META={cont:50, cc:22, ca:20, am:50};
+
+/* ---- ALIASES COLUMNAS ---- */
+const ALIASES={
+  ejecutivo:['propietario del registro','ejecutivo','agente','propietario','asesor','ejecutivo comercial'],
+  interesa:  ['interesa','interes','resultado','estado lead','estado','interés'],
+  matricula: ['matricula','matrícula','resultado matricula','resultado matric','matric','resultado final'],
+  fecha:     ['fecha de gestion','fecha gestion','fecha_gestion','fecha de creacion','fecha creacion','fecha','createdate','fecha llamada'],
+  fechamat:  ['fecha matricula','fecha matrícula','fechamatricula','fecha_matricula','fecha de matricula'],
+  carrera:   ['carrera','programa','nombre carrera','carrera / programa'],
+  regimen:   ['regimen','régimen','tipo regimen','modalidad'],
+  campus:    ['campus','sede','campus sede'],
+  base:      ['tipo de base','tipo base','base','tipo_base'],
+  mes:       ['mes','month'],
+  semana:    ['semana','week'],
+};
+
+/* ---- UTILS ---- */
+function norm(s){return String(s??'').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+function normH(h){return norm(h).replace(/[_()\[\]]/g,' ').replace(/\s+/g,' ').trim()}
+function detectCol(headers,aliases){
+  const hn=headers.map(h=>({h,n:normH(h)}));
+  for(const a of aliases){
+    const an=normH(a);
+    const f=hn.find(({n})=>n===an||n.includes(an)||an.includes(n));
+    if(f)return f.h;
+  }
+  return null;
+}
+function mapCols(headers){
+  const m={};
+  for(const[k,al]of Object.entries(ALIASES))m[k]=detectCol(headers,al);
+  return m;
+}
+function getVal(row,key){const c=COLS[key];return c?row[c]??'':''}
+
+function parseDate(str){
+  if(!str)return null;
+  if(str instanceof Date)return isNaN(str.getTime())?null:str;
+  const s=String(str).trim();
+  if(!s||s==='0')return null;
+  if(/^\d{5}(\.\d+)?$/.test(s)){
+    const d=new Date((parseFloat(s)-25569)*86400000);
+    return isNaN(d.getTime())?null:d;
+  }
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    const d=new Date(s.replace(' ','T'));
+    return isNaN(d.getTime())?null:d;
+  }
+  // DD/MM/YYYY o DD-MM-YYYY (formato chileno SheetJS)
+  const mCL=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(mCL){const d=new Date(+mCL[3],+mCL[2]-1,+mCL[1]);return isNaN(d.getTime())?null:d;}
+  const d=new Date(s);
+  return isNaN(d.getTime())?null:d;
+}
+function toYMD(d){
+  if(!d)return null;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+/* ---- REGLAS DE NEGOCIO ---- */
+const CONTACTADO_VALS=new Set(['viene','no viene','volver a llamar','a','m','mc']);
+const CITA_VAL='viene';
+const AF_VALS=new Set(['a','m','mc']);
+const MAT_VALS=new Set(['m','mc']);
+
+function isContactado(row){
+  const vi=norm(getVal(row,'interesa'));
+  if(CONTACTADO_VALS.has(vi))return true;
+  return AF_VALS.has(norm(getVal(row,'matricula')));
+}
+function tieneCita(row){return norm(getVal(row,'interesa'))===CITA_VAL;}
+function esAfluencia(row){return AF_VALS.has(norm(getVal(row,'matricula')));}
+function esMatricula(row){return MAT_VALS.has(norm(getVal(row,'matricula')));}
+
+/* ---- SEMÁFORO ---- */
+function sem(val,meta){
+  if(val>=meta)return'v';
+  if(val>=meta*0.8)return'a';
+  return'r';
+}
+const SEM_ICO={v:'🟢',a:'🟡',r:'🔴'};
+const SEM_LBL={v:'Cumple meta',a:'En riesgo',r:'Bajo desempeño'};
+const SEM_CLS={v:'sem-v',a:'sem-a',r:'sem-r'};
+
+/* ---- FILTRADO ---- */
+function getFiltered(){
+  const fd=document.getElementById('f-desde')?.value;
+  const fh=document.getElementById('f-hasta')?.value;
+  return DATA.filter(row=>{
+    if(fd||fh){
+      const d=parseDate(getVal(row,'fecha'));
+      if(d){
+        if(fd&&d<new Date(fd+'T00:00:00'))return false;
+        if(fh&&d>new Date(fh+'T23:59:59'))return false;
+      }
+    }
+    for(const k of FILTER_KEYS){
+      const v=FIL[k]||'all';
+      if(v==='all')continue;
+      if(k==='mes'){
+        // mes filtra por Fecha Gestión
+        const dm=parseDate(getVal(row,'fecha'));
+        if(dm){
+          const mn=MES_NUM[norm(v)];
+          if(mn&&(dm.getMonth()+1)!==mn)return false;
+        }
+        continue;
+      }
+      if(getVal(row,k)!==v)return false;
+    }
+    return true;
+  });
+}
+
+/* ⚠️ REGLA CRÍTICA: AF/Mat filtrados por Fecha Matrícula */
+function getFilteredAF(){
+  if(!COLS['fechamat'])return null;
+  const activeMes=FIL['mes']||'all';
+  const hasMes=activeMes!=='all';
+  if(!hasMes)return null;
+  const fd=document.getElementById('f-desde')?.value;
+  const fh=document.getElementById('f-hasta')?.value;
+  return DATA.filter(row=>{
+    for(const k of FILTER_KEYS){
+      if(k==='mes')continue;
+      const v=FIL[k]||'all';
+      if(v!=='all'&&getVal(row,k)!==v)return false;
+    }
+    if(fd||fh){
+      const d=parseDate(getVal(row,'fecha'));
+      if(d){
+        if(fd&&d<new Date(fd+'T00:00:00'))return false;
+        if(fh&&d>new Date(fh+'T23:59:59'))return false;
+      }
+    }
+    if(hasMes){
+      const mn=MES_NUM[norm(activeMes)];
+      if(mn){
+        const dm=parseDate(getVal(row,'fechamat'));
+        if(!dm||(dm.getMonth()+1)!==mn)return false;
+      }
+    }
+    return true;
+  });
+}
+
+/* ---- COMPUTE KPIs ---- */
+function computeKpis(data){
+  const afSrc=AF_DATA||data;
+  let rec=data.length, cont=0, cita=0, af=0, mat=0;
+  data.forEach(r=>{
+    if(isContactado(r))cont++;
+    if(tieneCita(r))cita++;
+    if(!AF_DATA){if(esAfluencia(r))af++;if(esMatricula(r))mat++;}
+  });
+  if(AF_DATA){AF_DATA.forEach(r=>{if(esAfluencia(r))af++;if(esMatricula(r))mat++;});}
+  return{
+    rec,cont,cita,af,mat,
+    pCont:  rec>0  ?cont/rec*100:0,
+    pCC:    cont>0 ?cita/cont*100:0,
+    pCA:    cita>0 ?af/cita*100:0,
+    pAM:    af>0   ?mat/af*100:0,
+    pFinal: rec>0  ?mat/rec*100:0,
+  };
+}
+
+/* ---- COMPUTE BY FIELD ---- */
+function computeByField(data,field,topN=20){
+  const p={};
+  data.forEach(row=>{
+    const k=getVal(row,field)||'Sin dato';
+    if(!p[k])p[k]={rec:0,cont:0,cita:0,af:0,mat:0};
+    p[k].rec++;
+    if(isContactado(row))p[k].cont++;
+    if(tieneCita(row))p[k].cita++;
+    if(!AF_DATA){if(esAfluencia(row))p[k].af++;if(esMatricula(row))p[k].mat++;}
+  });
+  if(AF_DATA){
+    AF_DATA.forEach(row=>{
+      const k=getVal(row,field)||'Sin dato';
+      if(!p[k])p[k]={rec:0,cont:0,cita:0,af:0,mat:0};
+      if(esAfluencia(row))p[k].af++;
+      if(esMatricula(row))p[k].mat++;
+    });
+  }
+  return Object.entries(p).map(([k,v])=>({k,...v,
+    pCont:v.rec>0  ?v.cont/v.rec*100:0,
+    pCC:  v.cont>0 ?v.cita/v.cont*100:0,
+    pCA:  v.cita>0 ?v.af/v.cita*100:0,
+    pAM:  v.af>0   ?v.mat/v.af*100:0,
+    pFinal:v.rec>0 ?v.mat/v.rec*100:0,
+  })).sort((a,b)=>b.mat-a.mat||b.cita-a.cita||b.rec-a.rec).slice(0,topN);
+}
+
+/* ---- COMPUTE TENDENCIA DIARIA ---- */
+function computeTendencia(data){
+  const ges={}, afm={};
+  data.forEach(row=>{
+    const d=parseDate(getVal(row,'fecha'));
+    const dk=d?toYMD(d):null;
+    if(!dk)return;
+    if(!ges[dk])ges[dk]={rec:0,cont:0,cita:0,af:0,mat:0};
+    ges[dk].rec++;
+    if(isContactado(row))ges[dk].cont++;
+    if(tieneCita(row))ges[dk].cita++;
+    if(!AF_DATA){if(esAfluencia(row)){ges[dk].af++;if(esMatricula(row))ges[dk].mat++;}}
+  });
+  const afSrc=AF_DATA||[];
+  afSrc.forEach(row=>{
+    const d=parseDate(getVal(row,'fechamat')||getVal(row,'fecha'));
+    const dk=d?toYMD(d):null;
+    if(!dk)return;
+    if(!ges[dk])ges[dk]={rec:0,cont:0,cita:0,af:0,mat:0};
+    if(esAfluencia(row)){ges[dk].af++;if(esMatricula(row))ges[dk].mat++;}
+  });
+  const labels=Object.keys(ges).sort();
+  return{labels,pts:labels.map(l=>ges[l])};
+}
+
+/* ---- HELPERS RENDER ---- */
+function killChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}}
+function renderChart(id,cfg){
+  killChart(id);
+  const c=document.getElementById(id);
+  if(c)CHARTS[id]=new Chart(c,cfg);
+}
+function pct(v){return v.toFixed(1)+'%'}
+function loc(v){return Math.round(v).toLocaleString('es-CL')}
+function barMini(v,color){
+  const w=Math.min(100,v).toFixed(1);
+  return `<div class="bar-mini"><div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${color}"></div></div><span style="font-size:10px;font-weight:700;color:${color}">${pct(v)}</span></div>`;
+}
+function semBadge(s){
+  return `<span class="${SEM_CLS[s]}">${SEM_ICO[s]} ${SEM_LBL[s]}</span>`;
+}
+
+function baseBarCfg(labels,datasets,opts={}){
+  return{type:'bar',data:{labels,datasets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}},
+      tooltip:{mode:'index',intersect:false}},
+    scales:{
+      x:{ticks:{font:{size:8},maxRotation:40},grid:{display:false}},
+      y:{beginAtZero:true,grid:{color:'#F1F5F9'},ticks:{font:{size:8}}},
+      ...opts
+    }
+  }};
+}
+
+/* ---- SET KPI ---- */
+function setEl(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function setBar(id,pct){const e=document.getElementById(id);if(e)e.style.width=Math.min(100,Math.max(0,pct)).toFixed(1)+'%';}
+function setSem(id,s){const e=document.getElementById(id);if(e){e.textContent=SEM_ICO[s]+' '+SEM_LBL[s];e.className='text-xs mt-1 '+SEM_CLS[s];}}
+
+/* ================================================================
+   RENDER KPIs
+   ================================================================ */
+function renderKpis(data){
+  const k=computeKpis(data);
+  setEl('k-rec',   loc(k.rec));
+  setEl('k-cont',  loc(k.cont));
+  setEl('k-cont-pct', pct(k.pCont));
+  setEl('k-cita',  loc(k.cita));
+  setEl('k-cc',    pct(k.pCC));
+  setEl('k-af',    loc(k.af));
+  setEl('k-ca',    pct(k.pCA));
+  setEl('k-mat',   loc(k.mat));
+  setEl('k-am',    pct(k.pAM));
+  setBar('kb-cont',k.pCont);
+  setBar('kb-cc',  k.pCC);
+  setBar('kb-ca',  k.pCA);
+  setBar('kb-am',  k.pAM);
+  setSem('ks-cont',sem(k.pCont,META.cont));
+  setSem('ks-cc',  sem(k.pCC,  META.cc));
+  setSem('ks-ca',  sem(k.pCA,  META.ca));
+  setSem('ks-am',  sem(k.pAM,  META.am));
+  // color border KPI cards
+  const kpis=[['kc-cont','kb-cont',k.pCont,META.cont,'#3B82F6'],
+               ['kc-cc',  'kb-cc',  k.pCC,  META.cc,  '#F97316'],
+               ['kc-ca',  'kb-ca',  k.pCA,  META.ca,  '#8B5CF6'],
+               ['kc-am',  'kb-am',  k.pAM,  META.am,  '#10B981']];
+  kpis.forEach(([card,,val,meta,col])=>{
+    const e=document.getElementById(card);
+    if(e)e.style.borderLeftColor=col;
+  });
+  const rb=document.getElementById('rec-badge');
+  if(rb)rb.textContent=loc(data.length)+' registros'+(AF_DATA?' · AF/Mat por Fecha Mat.':'');
+}
+
+/* ================================================================
+   RENDER CHARTS
+   ================================================================ */
+function renderCharts(data){
+  const execRows=computeByField(data,'ejecutivo',20);
+  const labels=execRows.map(r=>r.k.length>14?r.k.substring(0,14)+'…':r.k);
+
+  // 1. Productividad por ejecutivo
+  renderChart('ch-prod',baseBarCfg(labels,[
+    {label:'Recorridos', data:execRows.map(r=>r.rec),  backgroundColor:'#E2E8F0',borderRadius:3},
+    {label:'Contactados',data:execRows.map(r=>r.cont), backgroundColor:C.blue,  borderRadius:3},
+    {label:'Citas',      data:execRows.map(r=>r.cita), backgroundColor:C.orange,borderRadius:3},
+    {label:'Matrículas', data:execRows.map(r=>r.mat),  backgroundColor:C.green, borderRadius:3},
+  ]));
+
+  // 2. Conversión por ejecutivo
+  renderChart('ch-conv',baseBarCfg(labels,[
+    {label:'Contactabilidad %', data:execRows.map(r=>+r.pCont.toFixed(1)),backgroundColor:C.blue,  borderRadius:3},
+    {label:'Conv Cont→Cita %',  data:execRows.map(r=>+r.pCC.toFixed(1)),  backgroundColor:C.orange,borderRadius:3},
+    {label:'Conv Cita→AF %',    data:execRows.map(r=>+r.pCA.toFixed(1)),  backgroundColor:C.purple,borderRadius:3},
+    {label:'Conv AF→Mat %',     data:execRows.map(r=>+r.pAM.toFixed(1)),  backgroundColor:C.green, borderRadius:3},
+  ]));
+
+  // 3. Matrículas por carrera
+  const carrRows=computeByField(data,'carrera',15).sort((a,b)=>b.mat-a.mat).slice(0,12);
+  renderChart('ch-carr',baseBarCfg(
+    carrRows.map(r=>r.k.length>22?r.k.substring(0,22)+'…':r.k),
+    [{label:'Matrículas',data:carrRows.map(r=>r.mat),backgroundColor:C.green,borderRadius:3},
+     {label:'Afluencias',data:carrRows.map(r=>r.af),  backgroundColor:C.purple,borderRadius:3}]
+  ));
+
+  // 4. Conversión por régimen
+  const regRows=computeByField(data,'regimen',10);
+  renderChart('ch-reg',baseBarCfg(
+    regRows.map(r=>r.k),
+    [{label:'Conv AF→Mat %',data:regRows.map(r=>+r.pAM.toFixed(1)),backgroundColor:C.pal,borderRadius:3}]
+  ));
+
+  // 5. Rendimiento por tipo base
+  const baseRows=computeByField(data,'base',10).sort((a,b)=>b.mat-a.mat);
+  renderChart('ch-base',baseBarCfg(
+    baseRows.map(r=>r.k.length>16?r.k.substring(0,16)+'…':r.k),
+    [{label:'Matrículas', data:baseRows.map(r=>r.mat),backgroundColor:C.green, borderRadius:3},
+     {label:'Afluencias', data:baseRows.map(r=>r.af), backgroundColor:C.purple,borderRadius:3},
+     {label:'Conv AF→Mat %',data:baseRows.map(r=>+r.pAM.toFixed(1)),backgroundColor:C.orange,borderRadius:3,yAxisID:'y2'}],
+    {y2:{position:'right',beginAtZero:true,grid:{display:false},ticks:{font:{size:8},callback:v=>v+'%'}}}
+  ));
+
+  // 6. Evolución diaria
+  const tend=computeTendencia(data);
+  const labD=tend.labels.length>30?tend.labels.filter((_,i)=>i%Math.ceil(tend.labels.length/30)===0):tend.labels;
+  const idxD=tend.labels.length>30?tend.labels.reduce((acc,l,i)=>{if(i%Math.ceil(tend.labels.length/30)===0)acc.push(i);return acc;},[]):tend.labels.map((_,i)=>i);
+  renderChart('ch-tend',{type:'bar',data:{
+    labels:labD,
+    datasets:[
+      {label:'Citas',    data:idxD.map(i=>tend.pts[i]?.cita||0),backgroundColor:C.orange+'99',borderRadius:2},
+      {label:'Afluencias',data:idxD.map(i=>tend.pts[i]?.af||0),  backgroundColor:C.purple+'99',borderRadius:2},
+      {label:'Matrículas',data:idxD.map(i=>tend.pts[i]?.mat||0), backgroundColor:C.green,       borderRadius:2},
+    ]
+  },options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}}},
+    scales:{x:{ticks:{font:{size:7},maxRotation:45},grid:{display:false}},y:{beginAtZero:true,grid:{color:'#F1F5F9'},ticks:{font:{size:8}}}}
+  }});
+}
+
+/* ================================================================
+   TABLA EJECUTIVOS
+   ================================================================ */
+function renderTableEjecutivos(data){
+  const rows=computeByField(data,'ejecutivo',50);
+  const el=document.getElementById('tbl-exec');
+  if(!el)return;
+  if(!rows.length){el.innerHTML='<p class="text-slate-400 text-sm p-4">Sin datos.</p>';return;}
+  let html=`<table class="w-full text-xs border-collapse">
+    <thead><tr class="bg-slate-700 text-white">
+      <th class="px-3 py-2 text-left font-semibold">#</th>
+      <th class="px-3 py-2 text-left font-semibold">Ejecutivo</th>
+      <th class="px-3 py-2 text-right font-semibold">Recorridos</th>
+      <th class="px-3 py-2 text-right font-semibold">Contactados</th>
+      <th class="px-3 py-2 font-semibold">Contactabilidad</th>
+      <th class="px-3 py-2 text-right font-semibold">Citas</th>
+      <th class="px-3 py-2 font-semibold">Conv C→Cita</th>
+      <th class="px-3 py-2 text-right font-semibold">Afluencias</th>
+      <th class="px-3 py-2 font-semibold">Conv Cita→AF</th>
+      <th class="px-3 py-2 text-right font-semibold">Matrículas</th>
+      <th class="px-3 py-2 font-semibold">Conv AF→Mat</th>
+      <th class="px-3 py-2 text-center font-semibold">Semáforo</th>
+    </tr></thead><tbody>`;
+  rows.forEach((r,i)=>{
+    const sv=sem(r.pCont,META.cont), scc=sem(r.pCC,META.cc), sca=sem(r.pCA,META.ca), sam=sem(r.pAM,META.am);
+    const sems=[sv,scc,sca,sam];
+    const overall=sems.filter(s=>s==='r').length>=2?'r':sems.filter(s=>s==='v').length>=3?'v':'a';
+    const rowBg=overall==='v'?'hover:bg-emerald-50':overall==='a'?'hover:bg-amber-50':'hover:bg-red-50';
+    html+=`<tr class="border-b border-slate-100 ${rowBg}">
+      <td class="px-3 py-2 text-slate-400 font-bold">${i+1}</td>
+      <td class="px-3 py-2 font-semibold text-slate-700 max-w-36 truncate" title="${r.k}">${r.k}</td>
+      <td class="px-3 py-2 text-right text-slate-600">${loc(r.rec)}</td>
+      <td class="px-3 py-2 text-right text-blue-600 font-bold">${loc(r.cont)}</td>
+      <td class="px-3 py-2">${barMini(r.pCont,C.blue)}</td>
+      <td class="px-3 py-2 text-right font-bold" style="color:#F97316">${loc(r.cita)}</td>
+      <td class="px-3 py-2">${barMini(r.pCC,C.orange)}</td>
+      <td class="px-3 py-2 text-right text-purple-600 font-bold">${loc(r.af)}</td>
+      <td class="px-3 py-2">${barMini(r.pCA,C.purple)}</td>
+      <td class="px-3 py-2 text-right text-emerald-600 font-bold">${loc(r.mat)}</td>
+      <td class="px-3 py-2">${barMini(r.pAM,C.green)}</td>
+      <td class="px-3 py-2 text-center">${semBadge(overall)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+/* ================================================================
+   ANÁLISIS COMERCIAL
+   ================================================================ */
+function smallTable(rows,cols){
+  if(!rows.length)return'<p class="text-slate-400 text-xs p-2">Sin datos.</p>';
+  return`<table class="w-full text-xs border-collapse">
+    <thead><tr class="bg-slate-100">${cols.map(c=>`<th class="px-2 py-1.5 text-left font-semibold text-slate-600">${c.h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr class="border-b border-slate-50 hover:bg-slate-50">${cols.map(c=>`<td class="px-2 py-1.5 ${c.cls||''}">${c.fn(r)}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function renderComercial(data){
+  const carrRows=computeByField(data,'carrera',50);
+
+  // Top carreras por matrículas
+  const topMat=carrRows.slice(0,10);
+  document.getElementById('tbl-carr-top').innerHTML=smallTable(topMat,[
+    {h:'Carrera',fn:r=>`<span title="${r.k}">${r.k.length>30?r.k.substring(0,30)+'…':r.k}</span>`},
+    {h:'AF',  fn:r=>`<span class="font-bold text-purple-600">${loc(r.af)}</span>`,  cls:'text-right'},
+    {h:'Mat', fn:r=>`<span class="font-bold text-emerald-600">${loc(r.mat)}</span>`,cls:'text-right'},
+    {h:'Conv AF→Mat',fn:r=>barMini(r.pAM,C.green)},
+  ]);
+
+  // Carreras con menor conversión (mínimo 3 afluencias)
+  const lowConv=carrRows.filter(r=>r.af>=3).sort((a,b)=>a.pAM-b.pAM).slice(0,8);
+  document.getElementById('tbl-carr-low').innerHTML=smallTable(lowConv,[
+    {h:'Carrera',fn:r=>`<span title="${r.k}">${r.k.length>30?r.k.substring(0,30)+'…':r.k}</span>`},
+    {h:'AF',    fn:r=>`<span class="font-bold text-purple-600">${loc(r.af)}</span>`,  cls:'text-right'},
+    {h:'Mat',   fn:r=>`<span class="font-bold text-emerald-600">${loc(r.mat)}</span>`,cls:'text-right'},
+    {h:'Conv AF→Mat',fn:r=>`<span class="font-bold text-red-500">${pct(r.pAM)}</span>`},
+  ]);
+
+  // Regímenes
+  const regRows=computeByField(data,'regimen',15).filter(r=>r.af>=2).sort((a,b)=>b.pAM-a.pAM);
+  document.getElementById('tbl-reg').innerHTML=smallTable(regRows,[
+    {h:'Régimen',fn:r=>r.k},
+    {h:'Recorridos',fn:r=>loc(r.rec),cls:'text-right'},
+    {h:'AF', fn:r=>`<span class="font-bold text-purple-600">${loc(r.af)}</span>`,  cls:'text-right'},
+    {h:'Mat',fn:r=>`<span class="font-bold text-emerald-600">${loc(r.mat)}</span>`,cls:'text-right'},
+    {h:'Conv AF→Mat',fn:r=>barMini(r.pAM,C.green)},
+  ]);
+
+  // Tipo de base
+  const baseRows=computeByField(data,'base',15).filter(r=>r.rec>=2).sort((a,b)=>b.mat-a.mat);
+  document.getElementById('tbl-base').innerHTML=smallTable(baseRows,[
+    {h:'Tipo Base',fn:r=>r.k},
+    {h:'Recorridos',fn:r=>loc(r.rec),cls:'text-right'},
+    {h:'AF', fn:r=>`<span class="font-bold text-purple-600">${loc(r.af)}</span>`,  cls:'text-right'},
+    {h:'Mat',fn:r=>`<span class="font-bold text-emerald-600">${loc(r.mat)}</span>`,cls:'text-right'},
+    {h:'Conv AF→Mat',fn:r=>barMini(r.pAM,C.green)},
+    {h:'Conv Final', fn:r=>barMini(r.pFinal,C.orange)},
+  ]);
+}
+
+/* ================================================================
+   CONCLUSIONES AUTOMÁTICAS
+   ================================================================ */
+function renderConclusiones(data){
+  const k=computeKpis(data);
+  const execRows=computeByField(data,'ejecutivo',50);
+  const carrRows=computeByField(data,'carrera',50);
+  const baseRows=computeByField(data,'base',15);
+  const ins=[];
+
+  // Top 5 ejecutivos
+  const top5=execRows.slice(0,5);
+  if(top5.length)ins.push({ico:'🏆',tipo:'hallazgo',titulo:'Top 5 Ejecutivos',
+    body:top5.map((r,i)=>`<b>${i+1}. ${r.k.length>22?r.k.substring(0,22)+'…':r.k}</b> — ${loc(r.mat)} mat. · Conv AF→Mat ${pct(r.pAM)}`).join('<br>')});
+
+  // Ejecutivos que requieren coaching
+  const coaching=execRows.filter(r=>r.rec>=5&&(sem(r.pCont,META.cont)==='r'||sem(r.pCC,META.cc)==='r'||sem(r.pAM,META.am)==='r'));
+  if(coaching.length)ins.push({ico:'📋',tipo:'riesgo',titulo:`${coaching.length} ejecutivo(s) requieren coaching`,
+    body:coaching.slice(0,5).map(r=>{
+      const areas=[];
+      if(sem(r.pCont,META.cont)==='r')areas.push(`Contactabilidad ${pct(r.pCont)}`);
+      if(sem(r.pCC,META.cc)==='r')  areas.push(`Conv Cont→Cita ${pct(r.pCC)}`);
+      if(sem(r.pAM,META.am)==='r')  areas.push(`Conv AF→Mat ${pct(r.pAM)}`);
+      return`<b>${r.k.length>20?r.k.substring(0,20)+'…':r.k}</b>: ${areas.join(', ')}`;
+    }).join('<br>')});
+
+  // Carreras con baja conversión
+  const avgAM=carrRows.filter(r=>r.af>=3).reduce((s,r)=>s+r.pAM,0)/(carrRows.filter(r=>r.af>=3).length||1);
+  const lowCarr=carrRows.filter(r=>r.af>=3&&r.pAM<avgAM*0.6).slice(0,4);
+  if(lowCarr.length)ins.push({ico:'⚠️',tipo:'riesgo',titulo:'Carreras con baja conversión AF→Mat',
+    body:lowCarr.map(r=>`<b>${r.k.length>28?r.k.substring(0,28)+'…':r.k}</b> — ${loc(r.af)} AF, ${pct(r.pAM)} conv.`).join('<br>')});
+
+  // Mejor base
+  const bestBase=baseRows.filter(r=>r.af>=2).sort((a,b)=>b.pAM-a.pAM)[0];
+  if(bestBase)ins.push({ico:'🎯',tipo:'hallazgo',titulo:'Tipo de base con mejor resultado',
+    body:`<b>${bestBase.k}</b>: ${loc(bestBase.mat)} matrículas · Conv AF→Mat ${pct(bestBase.pAM)}`});
+
+  // Oportunidad principal
+  const potencial=execRows.filter(r=>r.cita>0&&r.pCA<META.ca).reduce((s,r)=>s+r.cita,0);
+  if(potencial>0)ins.push({ico:'💡',tipo:'oportunidad',titulo:'Principal oportunidad — Aumentar matrículas',
+    body:`Hay <b>${loc(potencial)}</b> citas con Conv Cita→AF bajo meta (${META.ca}%). Mejorar seguimiento pre-visita podría generar aproximadamente <b>${loc(Math.round(potencial*(META.ca/100)))}</b> afluencias adicionales.`});
+
+  // Contactabilidad
+  if(k.pCont<META.cont)ins.push({ico:'📞',tipo:'riesgo',titulo:'Contactabilidad bajo meta',
+    body:`${pct(k.pCont)} vs meta ${META.cont}%. Revisar calidad de base y horarios de llamadas.`});
+
+  const COLS_INS={hallazgo:'border-emerald-400 bg-emerald-50',riesgo:'border-red-400 bg-red-50',oportunidad:'border-amber-400 bg-amber-50'};
+  const el=document.getElementById('conclusiones');
+  if(!el)return;
+  el.innerHTML=ins.map(i=>`
+    <div class="rounded-xl border-l-4 p-4 ${COLS_INS[i.tipo]||'border-blue-400 bg-blue-50'}">
+      <div class="text-lg mb-1">${i.ico}</div>
+      <div class="font-bold text-slate-700 text-sm mb-2">${i.titulo}</div>
+      <div class="text-xs text-slate-600 leading-relaxed">${i.body}</div>
+    </div>`).join('');
+}
+
+/* ================================================================
+   RENDER ALL
+   ================================================================ */
+function renderAll(){
+  const data=getFiltered();
+  AF_DATA=getFilteredAF();
+  renderKpis(data);
+  renderCharts(data);
+  renderTableEjecutivos(data);
+  renderComercial(data);
+  renderConclusiones(data);
+}
+
+let _dbt=null;
+function renderDebounced(){clearTimeout(_dbt);_dbt=setTimeout(renderAll,DATA.length>100000?500:250);}
+
+/* ================================================================
+   FILTROS — BUILD OPTIONS
+   ================================================================ */
+function buildFilters(){
+  const sets={};
+  FILTER_KEYS.forEach(k=>sets[k]=new Set());
+  DATA.forEach(row=>FILTER_KEYS.forEach(k=>{const v=getVal(row,k);if(v)sets[k].add(v);}));
+  FILTER_KEYS.forEach(k=>{
+    const sel=document.getElementById('f-'+k);
+    if(!sel)return;
+    const first=sel.options[0].outerHTML;
+    sel.innerHTML=first;
+    [...sets[k]].sort().forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v;o.textContent=v.length>40?v.substring(0,40)+'…':v;
+      sel.appendChild(o);
+    });
+  });
+}
+
+/* ================================================================
+   INGEST DATA
+   ================================================================ */
+function ingestData(data,fname,fsize,ms){
+  DATA=data;
+  COLS=mapCols(Object.keys(data[0]||{}));
+  FIL={};AF_DATA=null;
+
+  // Reset filtros
+  FILTER_KEYS.forEach(k=>{const e=document.getElementById('f-'+k);if(e)e.value='all';});
+  ['f-desde','f-hasta'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+
+  buildFilters();
+
+  // Mostrar dashboard
+  document.getElementById('drop-zone').style.display='none';
+  document.getElementById('dash').style.display='block';
+
+  // Col hint
+  const detected=Object.entries(COLS).filter(([,v])=>v).map(([k,v])=>k+'→'+v).join(' · ');
+  document.getElementById('col-hint').textContent='✓ '+detected;
+  document.getElementById('file-info').textContent=
+    fname+' · '+(fsize?(fsize/1048576).toFixed(1)+'MB · ':'')+
+    data.length.toLocaleString('es-CL')+' registros · '+ms+'ms';
+
+  hideLoading();
+  renderAll();
+  toast('✓ '+data.length.toLocaleString('es-CL')+' registros cargados en '+ms+'ms');
+}
+
+/* ================================================================
+   PROCESS FILE
+   ================================================================ */
+function processFile(file){
+  if(!file)return;
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  showLoading('Leyendo archivo…',file.name);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    showLoading('Parseando…','SheetJS procesando hojas…');
+    setTimeout(()=>{
+      try{
+        const t0=performance.now();
+        let wb;
+        if(ext==='csv') wb=XLSX.read(e.target.result,{type:'string',dense:true});
+        else wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,dense:true});
+        const sheet=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:false});
+        const ms=Math.round(performance.now()-t0);
+        if(!data.length){hideLoading();toast('Archivo vacío',true);return;}
+        setTimeout(()=>ingestData(data,file.name,file.size,ms),30);
+      }catch(err){hideLoading();toast('Error: '+err.message,true);}
+    },30);
+  };
+  reader.onerror=()=>{hideLoading();toast('Error al leer el archivo',true);};
+  if(ext==='csv')reader.readAsText(file,'UTF-8');
+  else reader.readAsArrayBuffer(file);
+}
+
+/* ================================================================
+   UI HELPERS
+   ================================================================ */
+function showLoading(msg,sub){
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('load-msg').textContent=msg||'Procesando…';
+  document.getElementById('load-sub').textContent=sub||'';
+}
+function hideLoading(){document.getElementById('loading').classList.add('hidden');}
+let _tt=null;
+function toast(msg,err){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.borderLeftColor=err?'#EF4444':'#F97316';
+  t.classList.add('show');
+  clearTimeout(_tt);
+  _tt=setTimeout(()=>t.classList.remove('show'),4000);
+}
+
+/* ================================================================
+   EVENT LISTENERS
+   ================================================================ */
+document.addEventListener('DOMContentLoaded',()=>{
+  // Filtros
+  FILTER_KEYS.forEach(k=>{
+    const sel=document.getElementById('f-'+k);
+    if(sel)sel.addEventListener('change',()=>{FIL[k]=sel.value;if(DATA.length)renderDebounced();});
+  });
+  ['f-desde','f-hasta'].forEach(id=>{
+    const e=document.getElementById(id);
+    if(e)e.addEventListener('change',()=>{if(DATA.length)renderDebounced();});
+  });
+  document.getElementById('btn-clear').addEventListener('click',()=>{
+    FIL={};AF_DATA=null;
+    FILTER_KEYS.forEach(k=>{const e=document.getElementById('f-'+k);if(e)e.value='all';});
+    ['f-desde','f-hasta'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    if(DATA.length)renderAll();
+  });
+
+  // Metas
+  document.getElementById('btn-metas').addEventListener('click',()=>{
+    META.cont=+document.getElementById('m-cont').value||50;
+    META.cc=  +document.getElementById('m-cc').value||22;
+    META.ca=  +document.getElementById('m-ca').value||20;
+    META.am=  +document.getElementById('m-am').value||50;
+    if(DATA.length)renderAll();
+    toast('Metas actualizadas');
+  });
+
+  // File input
+  const fi=document.getElementById('file-input');
+  if(fi)fi.addEventListener('change',e=>{if(e.target.files[0])processFile(e.target.files[0]);e.target.value='';});
+
+  // Drop zone
+  const drop=document.getElementById('drop-inner');
+  if(drop){
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drop-active');});
+    drop.addEventListener('dragleave',()=>drop.classList.remove('drop-active'));
+    drop.addEventListener('drop',e=>{
+      e.preventDefault();drop.classList.remove('drop-active');
+      const f=e.dataTransfer.files[0];if(f)processFile(f);
+    });
+    drop.addEventListener('click',()=>document.getElementById('file-input').click());
+  }
+  // Header upload button
+  document.getElementById('upload-btn').addEventListener('click',e=>{
+    e.preventDefault();
+    document.getElementById('file-input').click();
+  });
+});
+</script>
+</body>
+</html>
