@@ -635,12 +635,28 @@ function getVal(row,key){
 }
 function parseDate(str){
   if(!str)return null;
-  if(/^\d{5}$/.test(String(str))){
-    const d=new Date((parseInt(str)-25569)*86400000);
+  // Date object directo (SheetJS cellDates:true)
+  if(str instanceof Date)return isNaN(str.getTime())?null:str;
+  const s=String(str).trim();
+  if(!s)return null;
+  // Serial Excel entero o decimal con tiempo  (46024 ó 46024.7248...)
+  if(/^\d{5}(\.\d+)?$/.test(s)){
+    const d=new Date((parseFloat(s)-25569)*86400000);
     return isNaN(d.getTime())?null:d;
   }
-  if(str instanceof Date)return isNaN(str.getTime())?null:str;
-  const d=new Date(str);
+  // ISO  YYYY-MM-DD[T/espacio]HH:MM:SS  →  new Date() lo maneja bien
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    const d=new Date(s.replace(' ','T'));
+    return isNaN(d.getTime())?null:d;
+  }
+  // Formato chileno  DD/MM/YYYY  o  DD-MM-YYYY  (con hora opcional)
+  const mCL=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(mCL){
+    const d=new Date(+mCL[3],+mCL[2]-1,+mCL[1]);
+    return isNaN(d.getTime())?null:d;
+  }
+  // Fallback genérico
+  const d=new Date(s);
   return isNaN(d.getTime())?null:d;
 }
 
@@ -795,6 +811,14 @@ function processFile(file){
 function ingestData(data,filename,fileSize,parseMs){
   DATA=data;
   COLS=mapCols(Object.keys(data[0]));
+  // DEBUG: verificar formato Fecha Matrícula (se puede quitar después)
+  if(COLS['fechamat']){
+    const sample=data.find(r=>r[COLS['fechamat']]);
+    if(sample){
+      const raw=sample[COLS['fechamat']];
+      console.log('[fechamat] tipo:',typeof raw,' valor:',raw,' parseDate:',parseDate(String(raw)));
+    }
+  }
   FILE_TYPE=detectFileType();   // 'citas' o 'gestion'
   META = FILE_TYPE==='citas' ? META_CITAS : META_GESTION;
   FIL={};
@@ -1406,263 +1430,195 @@ function _doughnutCausa(entries,total){
 function renderChartCausa(data){
   const{noCita,noMat}=computeCausaRaiz(data);
   const tNC=noCita.reduce((s,x)=>s+x.n,0), tNM=noMat.reduce((s,x)=>s+x.n,0);
-  renderChart('chart-causa-nocita',_doughnutCausa(noCita.slice(0,10),tNC));
-  renderChart('chart-causa-nomat',_doughnutCausa(noMat.slice(0,10)||[{c:'Sin datos',n:1}],tNM||1));
+  renderChart('chart-causa-1',_doughnutCausa(noCita.slice(0,8),tNC));
+  renderChart('chart-causa-2',_doughnutCausa(noMat.slice(0,8),tNM));
 }
 
 /* ============================================================
-   PAGINACIÓN HELPER
+   UTILIDADES UI
    ============================================================ */
-function buildPag(tid,curPag,totalPags,totalRows,start,count){
-  if(totalPags<=1)return'<div class="pag-wrap"><span class="pag-info">'+totalRows.toLocaleString('es-CL')+' registros</span></div>';
-  const from=start+1, to=start+count;
-  let btns='';
-  if(curPag>0)btns+='<button class="pag-btn" data-pag-tid="'+tid+'" data-pag="'+(curPag-1)+'">‹ Ant.</button>';
-  // mostrar máximo 5 botones de página centrados en curPag
-  const winStart=Math.max(0,curPag-2), winEnd=Math.min(totalPags-1,curPag+2);
-  if(winStart>0)btns+='<button class="pag-btn" data-pag-tid="'+tid+'" data-pag="0">1</button>'+(winStart>1?'<span style="padding:0 4px;font-size:11px;color:#9CA3AF">…</span>':'');
-  for(let p=winStart;p<=winEnd;p++)btns+='<button class="pag-btn'+(p===curPag?' active':'')+'" data-pag-tid="'+tid+'" data-pag="'+p+'">'+(p+1)+'</button>';
-  if(winEnd<totalPags-1)btns+=(winEnd<totalPags-2?'<span style="padding:0 4px;font-size:11px;color:#9CA3AF">…</span>':'')+'<button class="pag-btn" data-pag-tid="'+tid+'" data-pag="'+(totalPags-1)+'">'+totalPags+'</button>';
-  if(curPag<totalPags-1)btns+='<button class="pag-btn" data-pag-tid="'+tid+'" data-pag="'+(curPag+1)+'">Sig. ›</button>';
-  return'<div class="pag-wrap"><span class="pag-info">'+from+'-'+to+' de '+totalRows.toLocaleString('es-CL')+' · Pág '+(curPag+1)+'/'+totalPags+'</span><div class="pag-btns">'+btns+'</div></div>';
+let _toastTimer=null;
+function showToast(msg,isError){
+  const t=document.getElementById('toast');if(!t)return;
+  t.textContent=msg;
+  t.style.borderLeftColor=isError?'#DC2626':'var(--orange)';
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'),4500);
 }
 
-function attachPag(tid,totalPags,renderFn){
-  // Event delegation en el contenedor padre
-  const container=document.getElementById('table-'+tid);
-  if(!container)return;
-  container.querySelectorAll('[data-pag-tid="'+tid+'"]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      PAG[tid]=parseInt(btn.dataset.pag);
-      renderFn();
-      btn.closest('.card')?.scrollIntoView({behavior:'smooth',block:'nearest'});
-    });
-  });
+function barHTML(pct,max,color){
+  const w=max>0?Math.min(100,pct/max*100).toFixed(1):0;
+  return '<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+w+'%;background:'+(color||'var(--orange)')+'"></div></div><span class="bar-label">'+pct.toFixed(1)+'%</span></div>';
 }
 
 /* ============================================================
-   TABLAS
+   TABLAS DE ANÁLISIS
    ============================================================ */
-function barHTML(val,max,col){
-  const w=Math.min((val/(max||1))*100,100).toFixed(1);
-  return'<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+w+'%;background:'+col+'"></div></div><span class="bar-label">'+val.toFixed(1)+'%</span></div>';
-}
-function badgeHTML(n,bg,col){return'<span class="badge" style="background:'+bg+'22;color:'+col+'">'+( typeof n==='number'?n.toLocaleString('es-CL'):n)+'</span>';}
-
 function renderTableAgentes(data){
-  const all=computeByField(data,'agente',200);  // máximo 200 agentes
   const el=document.getElementById('table-agentes');if(!el)return;
-  if(!all.length){el.innerHTML='<p style="color:#9CA3AF;padding:14px">Sin datos de agente.</p>';return;}
-
-  const tid='agentes';
-  if(PAG[tid]===undefined)PAG[tid]=0;
-  const totalPags=Math.ceil(all.length/PAGE_SIZE);
-  PAG[tid]=Math.min(PAG[tid],totalPags-1);
-  const start=PAG[tid]*PAGE_SIZE;
-  const e=all.slice(start,start+PAGE_SIZE);
-
-  const rows=e.map((x,ii)=>{
-    const i=start+ii;
-    const sCont=semaforo(x.contactabilidad,META.contactabilidad);
-    const sCita=semaforo(x.convContCita,META.convContCita);
-    const sAf=semaforo(x.convCitaAf,META.convCitaAf);
-    const sMat=semaforo(x.convAfMat,META.convAfMat);
-    const icon=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
-    return'<tr>'+
-      '<td style="text-align:center;font-weight:700">'+icon+'</td>'+
-      '<td>'+(i<3?'<strong>'+x.k+'</strong>':x.k)+'</td>'+
-      '<td style="text-align:center;font-weight:700">'+x.total.toLocaleString('es-CL')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.cont,'#22C55E','#15803D')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.cita,'#F4721E','#D45E0A')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.af,'#7C3AED','#5B21B6')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.mat,'#22C55E','#15803D')+'</td>'+
-      '<td>'+barHTML(x.contactabilidad,100,SEMCOL[sCont])+'<span class="sem-badge" style="background:'+SEMCOL[sCont]+'22;color:'+SEMCOL[sCont]+'">'+SEMIC[sCont]+'</span></td>'+
-      '<td>'+barHTML(x.convContCita,100,SEMCOL[sCita])+'</td>'+
-      '<td>'+barHTML(x.convCitaAf,100,SEMCOL[sAf])+'</td>'+
-      '<td>'+barHTML(x.convAfMat,100,SEMCOL[sMat])+'</td>'+
-      '<td style="font-size:10px;font-weight:700;color:#3B82F6">'+x.convFinal.toFixed(2)+'%</td>'+
-    '</tr>';
-  }).join('');
-
-  el.innerHTML=
-    '<table class="dtable"><thead><tr><th>#</th><th>Agente</th><th>Recorridos</th><th>Contactados</th><th>Citas</th><th>Afluencia</th><th>Matrículas</th><th>Contactab.%</th><th>Cont→Cita%</th><th>Cita→AF%</th><th>AF→Mat%</th><th>Conv.Final%</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    buildPag(tid,PAG[tid],totalPags,all.length,start,e.length);
-  attachPag(tid,totalPags,()=>renderTableAgentes(data));
+  const rows=computeByField(data,'agente',50);
+  if(!rows.length){el.innerHTML='<p style="color:#888;font-size:12px;padding:8px">Sin datos de agente/propietario.</p>';return;}
+  if(FILE_TYPE==='citas'){
+    const th='<thead><tr><th>Propietario</th><th>Citas</th><th>No Show</th><th>Afluencia</th><th>Matrícula</th><th>Conv Cita→AF</th><th>Conv AF→Mat</th></tr></thead>';
+    const rr=r=>'<tr><td>'+r.k+'</td><td style="text-align:center">'+r.total.toLocaleString('es-CL')+'</td><td style="text-align:center;color:var(--red)">'+Math.round(r.total-r.af)+'</td><td style="text-align:center;color:var(--purple)">'+r.af.toLocaleString('es-CL')+'</td><td style="text-align:center;font-weight:700;color:var(--green)">'+r.mat.toLocaleString('es-CL')+'</td><td>'+barHTML(r.convCitaAf,100,C.purple)+'</td><td>'+barHTML(r.convAfMat,100,C.green)+'</td></tr>';
+    el.innerHTML='<table class="dtable">'+th+'<tbody>'+rows.map(rr).join('')+'</tbody></table>';
+  } else {
+    const th='<thead><tr><th>Agente</th><th>Recorridos</th><th>Contactados</th><th>Citas</th><th>AF</th><th>Mat</th><th>Cont%</th><th>Cont→Cita%</th><th>Cita→AF%</th><th>AF→Mat%</th></tr></thead>';
+    const rr=r=>'<tr><td>'+r.k+'</td><td style="text-align:center">'+r.total.toLocaleString('es-CL')+'</td><td style="text-align:center">'+r.cont.toLocaleString('es-CL')+'</td><td style="text-align:center">'+r.cita.toLocaleString('es-CL')+'</td><td style="text-align:center;color:var(--purple)">'+r.af.toLocaleString('es-CL')+'</td><td style="text-align:center;font-weight:700;color:var(--green)">'+r.mat.toLocaleString('es-CL')+'</td><td>'+barHTML(r.contactabilidad,100,C.orange)+'</td><td>'+barHTML(r.convContCita,100,C.orange)+'</td><td>'+barHTML(r.convCitaAf,100,C.purple)+'</td><td>'+barHTML(r.convAfMat,100,C.green)+'</td></tr>';
+    el.innerHTML='<table class="dtable">'+th+'<tbody>'+rows.map(rr).join('')+'</tbody></table>';
+  }
 }
 
 function renderTableCarreras(data){
-  const all=computeByField(data,'carrera',300).sort((a,b)=>b.total-a.total);
-  const avg=all.length>0?all.reduce((s,x)=>s+x.convFinal,0)/all.length:0;
   const el=document.getElementById('table-carreras');if(!el)return;
-
-  const tid='carreras';
-  if(PAG[tid]===undefined)PAG[tid]=0;
-  const totalPags=Math.ceil(all.length/PAGE_SIZE);
-  PAG[tid]=Math.min(PAG[tid],totalPags-1);
-  const start=PAG[tid]*PAGE_SIZE;
-  const e=all.slice(start,start+PAGE_SIZE);
-
-  const rows=e.map((x,ii)=>{
-    const i=start+ii;
-    const alert=x.total>data.length*0.03&&x.convFinal<avg*0.6;
-    return'<tr class="'+(alert?'row-alert':'')+'">'+
-      '<td style="color:#9CA3AF;font-weight:700;font-size:10px">'+(i+1)+'</td>'+
-      '<td style="font-size:11px;font-weight:500">'+x.k+'</td>'+
-      '<td style="text-align:center;font-weight:700">'+x.total.toLocaleString('es-CL')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.cita,'#F4721E','#D45E0A')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.af,'#7C3AED','#5B21B6')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.mat,'#22C55E','#15803D')+'</td>'+
-      '<td>'+barHTML(x.convFinal,100,C.orange)+'</td>'+
-      '<td>'+(alert?'<span class="tag-alert">⚠ Alta dem/baja conv.</span>':'')+'</td>'+
-    '</tr>';
-  }).join('');
-
-  el.innerHTML=
-    '<table class="dtable"><thead><tr><th>#</th><th>Carrera</th><th>Recorridos</th><th>Citas</th><th>Afluencia</th><th>Matrículas</th><th>Conv.Final%</th><th>Alerta</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    buildPag(tid,PAG[tid],totalPags,all.length,start,e.length);
-  attachPag(tid,totalPags,()=>renderTableCarreras(data));
+  const rows=computeByField(data,'carrera',30);
+  if(!rows.length){el.innerHTML='<p style="color:#888;font-size:12px;padding:8px">Sin datos de carrera.</p>';return;}
+  const lbl=FILE_TYPE==='citas'?'Citas':'Recorridos';
+  const th='<thead><tr><th>Carrera</th><th>'+lbl+'</th><th>AF</th><th>Mat</th><th>Conv Cita→AF</th><th>Conv AF→Mat</th><th>Conv Final</th></tr></thead>';
+  const rr=r=>'<tr><td style="max-width:220px;font-size:11px">'+r.k+'</td><td style="text-align:center">'+r.total.toLocaleString('es-CL')+'</td><td style="text-align:center;color:var(--purple)">'+r.af.toLocaleString('es-CL')+'</td><td style="text-align:center;font-weight:700;color:var(--green)">'+r.mat.toLocaleString('es-CL')+'</td><td>'+barHTML(r.convCitaAf,100,C.purple)+'</td><td>'+barHTML(r.convAfMat,100,C.green)+'</td><td>'+barHTML(r.convFinal,100,C.orange)+'</td></tr>';
+  el.innerHTML='<table class="dtable">'+th+'<tbody>'+rows.map(rr).join('')+'</tbody></table>';
 }
 
 function renderTableRegimen(data){
-  const e=computeByField(data,'regimen',10).sort((a,b)=>b.total-a.total);
   const el=document.getElementById('table-regimen');if(!el)return;
-  const rows=e.map(x=>{
-    const sMat=semaforo(x.convAfMat,META.convAfMat);
-    return'<tr>'+
-      '<td style="font-size:11px;font-weight:500">'+x.k+'</td>'+
-      '<td style="text-align:center;font-weight:700">'+x.total.toLocaleString('es-CL')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.cont,'#22C55E','#15803D')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.cita,'#F4721E','#D45E0A')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.af,'#7C3AED','#5B21B6')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.mat,'#22C55E','#15803D')+'</td>'+
-      '<td>'+barHTML(x.contactabilidad,100,C.green)+'</td>'+
-      '<td>'+barHTML(x.convContCita,100,C.orange)+'</td>'+
-      '<td>'+barHTML(x.convCitaAf,100,C.purple)+'</td>'+
-      '<td>'+barHTML(x.convAfMat,100,SEMCOL[sMat])+'</td>'+
-      '<td>'+barHTML(x.convFinal,100,C.blue)+'</td>'+
-    '</tr>';
-  }).join('');
-  el.innerHTML='<table class="dtable"><thead><tr><th>Régimen</th><th>Recorridos</th><th>Contactados</th><th>Citas</th><th>Afluencia</th><th>Matrículas</th><th>Contactab.%</th><th>Cont→Cita%</th><th>Cita→AF%</th><th>AF→Mat%</th><th>Conv.Final%</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  const rows=computeByField(data,'regimen',12);
+  if(!rows.length){el.innerHTML='<p style="color:#888;font-size:12px;padding:8px">Sin datos de régimen.</p>';return;}
+  const th='<thead><tr><th>Régimen</th><th>Total</th><th>AF</th><th>Mat</th><th>Conv Cita→AF</th><th>Conv AF→Mat</th></tr></thead>';
+  const rr=r=>'<tr><td>'+r.k+'</td><td style="text-align:center">'+r.total.toLocaleString('es-CL')+'</td><td style="text-align:center;color:var(--purple)">'+r.af.toLocaleString('es-CL')+'</td><td style="text-align:center;font-weight:700;color:var(--green)">'+r.mat.toLocaleString('es-CL')+'</td><td>'+barHTML(r.convCitaAf,100,C.purple)+'</td><td>'+barHTML(r.convAfMat,100,C.green)+'</td></tr>';
+  el.innerHTML='<table class="dtable">'+th+'<tbody>'+rows.map(rr).join('')+'</tbody></table>';
 }
 
 function renderTableBase(data){
-  const e=computeByField(data,'base',10).sort((a,b)=>b.total-a.total);
   const el=document.getElementById('table-base');if(!el)return;
-  const best=e[0]?.k, worst=e[e.length-1]?.k;
-  const rows=e.map((x,i)=>{
-    const tag=x.k===best?badgeHTML('🏆 Mejor','#22C55E','#15803D'):x.k===worst&&e.length>1?badgeHTML('⚠ Peor','#EF4444','#DC2626'):'';
-    return'<tr>'+
-      '<td style="font-size:11px;font-weight:500">'+x.k+'</td>'+
-      '<td style="text-align:center;font-weight:700">'+x.total.toLocaleString('es-CL')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.cita,'#F4721E','#D45E0A')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.af,'#7C3AED','#5B21B6')+'</td>'+
-      '<td style="text-align:center">'+badgeHTML(x.mat,'#22C55E','#15803D')+'</td>'+
-      '<td>'+barHTML(x.contactabilidad,100,C.green)+'</td>'+
-      '<td>'+barHTML(x.convFinal,100,C.orange)+'</td>'+
-      '<td>'+tag+'</td>'+
-    '</tr>';
-  }).join('');
-  el.innerHTML='<table class="dtable"><thead><tr><th>Tipo Base</th><th>Recorridos</th><th>Citas</th><th>Afluencia</th><th>Matrículas</th><th>Contactab.%</th><th>Conv.Final%</th><th>Ranking</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  const rows=computeByField(data,'base',15);
+  if(!rows.length){el.innerHTML='<p style="color:#888;font-size:12px;padding:8px">Sin datos de tipo base.</p>';return;}
+  const th='<thead><tr><th>Tipo Base</th><th>Total</th><th>AF</th><th>Mat</th><th>Conv AF→Mat</th><th>Conv Final</th></tr></thead>';
+  const rr=r=>'<tr><td>'+r.k+'</td><td style="text-align:center">'+r.total.toLocaleString('es-CL')+'</td><td style="text-align:center;color:var(--purple)">'+r.af.toLocaleString('es-CL')+'</td><td style="text-align:center;font-weight:700;color:var(--green)">'+r.mat.toLocaleString('es-CL')+'</td><td>'+barHTML(r.convAfMat,100,C.green)+'</td><td>'+barHTML(r.convFinal,100,C.orange)+'</td></tr>';
+  el.innerHTML='<table class="dtable">'+th+'<tbody>'+rows.map(rr).join('')+'</tbody></table>';
 }
 
+/* ============================================================
+   TABLA CAUSA RAÍZ — MODO DUAL
+   ============================================================ */
 function renderTableCausa(data){
-  const{noCita,noMat,segCierre}=computeCausaRaiz(data);
+  const {noCita,noMat,segCierre}=computeCausaRaiz(data);
   const el=document.getElementById('table-causa');if(!el)return;
   const toRows=arr=>arr.slice(0,12).map(x=>'<tr><td style="font-size:11px">'+x.c+'</td><td style="text-align:center;font-weight:700">'+x.n.toLocaleString('es-CL')+'</td><td>'+barHTML(x.pct,100,C.orange)+'</td></tr>').join('');
   if(FILE_TYPE==='citas'){
     el.innerHTML=
-      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Ultimo Interes Cierre — Por que NO hay Afluencia</th></tr><tr><th>Estado (Referente a)</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noCita)+'</tbody></table>'+
-      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Por que NO hay Matricula (Afluencia -> Matricula)</th></tr><tr><th>Causa (Seguimiento Cierre)</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noMat)+'</tbody></table>'+
-      (segCierre.length?'<table class="dtable"><thead><tr><th colspan="3">Seguimiento Cierre — Distribucion General</th></tr><tr><th>Seguimiento</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(segCierre)+'</tbody></table>':'');
+      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Último Interés Cierre — Por qué NO hay Afluencia</th></tr><tr><th>Estado</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noCita)+'</tbody></table>'+
+      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Seguimiento Cierre — Por qué NO hay Matrícula (post-Afluencia)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noMat)+'</tbody></table>'+
+      (segCierre&&segCierre.length?'<table class="dtable"><thead><tr><th colspan="3">Distribución Seguimiento Cierre</th></tr><tr><th>Seguimiento</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(segCierre)+'</tbody></table>':'');
   } else {
     el.innerHTML=
-      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Por que NO se agenda Cita (Contactado -> Cita)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noCita)+'</tbody></table>'+
-      '<table class="dtable"><thead><tr><th colspan="3">Por que NO hay Matricula (Afluencia -> Matricula)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noMat)+'</tbody></table>';
+      '<table class="dtable" style="margin-bottom:12px"><thead><tr><th colspan="3">Por qué NO se agenda Cita (Contactado → Cita)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noCita)+'</tbody></table>'+
+      '<table class="dtable"><thead><tr><th colspan="3">Por qué NO hay Matrícula (Afluencia → Matrícula)</th></tr><tr><th>Causa</th><th>Cantidad</th><th>%</th></tr></thead><tbody>'+toRows(noMat)+'</tbody></table>';
   }
 }
 
 /* ============================================================
-   KPIs + SEMAFORO — modo dual Citas CRM / Gestion CC
+   KPIs — MODO DUAL (Citas CRM / Gestión CC)
    ============================================================ */
 function renderKpis(data){
   const k=computeKpis(data);
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  const setSem=(id,s)=>{const el=document.getElementById(id);if(el&&s){el.textContent=SEMIC[s]+' '+SEMLAB[s];el.style.color=SEMCOL[s];}};
+  const setBar=(id,pct)=>{const el=document.getElementById(id);if(el)el.style.width=Math.min(100,Math.max(0,pct)).toFixed(1)+'%';};
   const isCitas=FILE_TYPE==='citas';
 
+  // Switch funnel visible
   document.getElementById('funnel-citas').style.display=isCitas?'flex':'none';
   document.getElementById('funnel-gestion').style.display=isCitas?'none':'flex';
-  document.getElementById('conv-row-citas').style.display=isCitas?'grid':'none';
-  document.getElementById('conv-row-gestion').style.display=isCitas?'none':'grid';
+  document.getElementById('conv-row-citas').style.display=isCitas?'flex':'none';
+  document.getElementById('conv-row-gestion').style.display=isCitas?'none':'flex';
 
-  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  const sem=(semId,barId,val,meta,inverso)=>{
-    const sv=inverso?(val<=meta?'verde':val<=meta*1.2?'amarillo':'rojo'):semaforo(val,meta);
-    const el=document.getElementById(semId),bar=document.getElementById(barId);
-    if(el){el.textContent=SEMIC[sv]+' '+val.toFixed(1)+'% (meta '+(inverso?'<='  :'')+meta+'%)';el.style.color=SEMCOL[sv];}
-    if(bar){bar.style.width=Math.min(inverso?(meta/Math.max(val,0.1)*100):val/meta*100,100)+'%';bar.style.background=SEMCOL[sv];}
-  };
+  // Records badge
+  const rb=document.getElementById('records-badge');
+  if(rb)rb.textContent=data.length.toLocaleString('es-CL')+' registros'+(AF_DATA?' · AF por Fecha Mat.':'');
 
   if(isCitas){
-    s('kpi-total',      k.total.toLocaleString('es-CL'));
-    s('kpi-noshow',     k.noShow.toLocaleString('es-CL'));
-    s('kpi-af-c',       k.af.toLocaleString('es-CL'));
-    s('kpi-mat-c',      k.mat.toLocaleString('es-CL'));
-    s('kpi-pend',       k.pendiente.toLocaleString('es-CL'));
-    s('fa-noshow',      k.noShowRate.toFixed(1)+'%');
-    s('fa-af-c',        k.convCitaAf.toFixed(1)+'%');
-    s('fa-mat-c',       k.convAfMat.toFixed(1)+'%');
-    s('kpi-noshow-rate',k.noShowRate.toFixed(1)+'%');
-    s('kpi-ca-c',       k.convCitaAf.toFixed(1)+'%');
-    s('kpi-am-c',       k.convAfMat.toFixed(1)+'%');
-    s('kpi-cf-c',       k.convFinal.toFixed(2)+'%');
-    sem('ksem-noshow','kb-noshow',k.noShowRate,META_CITAS.noShowMax,true);
-    sem('ksem-af-c','kb-af-c',k.convCitaAf,META_CITAS.convCitaAf,false);
-    sem('ksem-mat-c','kb-mat-c',k.convAfMat,META_CITAS.convAfMat,false);
-    sem('ksem-nsr','kb-nsr',k.noShowRate,META_CITAS.noShowMax,true);
-    sem('ksem-ca-c','kb-ca-c',k.convCitaAf,META_CITAS.convCitaAf,false);
-    sem('ksem-am-c','kb-am-c',k.convAfMat,META_CITAS.convAfMat,false);
-    const kbcf=document.getElementById('kb-cf-c');if(kbcf)kbcf.style.width=Math.min(k.convFinal*10,100)+'%';
-    document.getElementById('semaforo-bar').innerHTML=[
-      {l:'No Show',val:k.noShowRate,meta:META_CITAS.noShowMax,inv:true},
-      {l:'Conv Cita->AF',val:k.convCitaAf,meta:META_CITAS.convCitaAf,inv:false},
-      {l:'Conv AF->Mat',val:k.convAfMat,meta:META_CITAS.convAfMat,inv:false},
-      {l:'Conv Final',val:k.convFinal,meta:10,inv:false},
-    ].map(item=>{
-      const sv=item.inv?(item.val<=item.meta?'verde':item.val<=item.meta*1.2?'amarillo':'rojo'):semaforo(item.val,item.meta);
-      return'<div class="sem-item"><div class="sem-dot" style="background:'+SEMCOL[sv]+';box-shadow:0 0 4px '+SEMCOL[sv]+'"></div>'+item.l+': '+SEMIC[sv]+' '+item.val.toFixed(1)+'%</div>';
-    }).join('');
+    // Funnel
+    set('kpi-total',   k.total.toLocaleString('es-CL'));
+    set('kpi-noshow',  k.noShow.toLocaleString('es-CL'));
+    set('kpi-af-c',    k.af.toLocaleString('es-CL'));
+    set('kpi-mat-c',   k.mat.toLocaleString('es-CL'));
+    set('kpi-pend',    k.pendiente.toLocaleString('es-CL'));
+    set('fa-noshow',   k.noShowRate.toFixed(1)+'% NS');
+    set('fa-af-c',     k.convCitaAf.toFixed(1)+'%');
+    set('fa-mat-c',    k.convAfMat.toFixed(1)+'%');
+    // Conv cards
+    set('kpi-noshow-rate', k.noShowRate.toFixed(1)+'%');
+    set('kpi-ca-c',        k.convCitaAf.toFixed(1)+'%');
+    set('kpi-am-c',        k.convAfMat.toFixed(1)+'%');
+    set('kpi-cf-c',        k.convFinal.toFixed(1)+'%');
+    // Bars
+    setBar('kb-noshow', k.noShowRate);
+    setBar('kb-af-c',   k.total>0?k.af/k.total*100:0);
+    setBar('kb-mat-c',  k.total>0?k.mat/k.total*100:0);
+    setBar('kb-nsr',    k.noShowRate);
+    setBar('kb-ca-c',   k.convCitaAf);
+    setBar('kb-am-c',   k.convAfMat);
+    setBar('kb-cf-c',   k.convFinal);
+    // Semáforos — No Show: INVERSO (verde si bajo, rojo si alto)
+    const sNS=k.noShowRate<=META_CITAS.noShowMax?'verde':k.noShowRate<=META_CITAS.noShowMax*1.25?'amarillo':'rojo';
+    setSem('ksem-noshow', sNS);
+    setSem('ksem-nsr',    sNS);
+    setSem('ksem-af-c',   semaforo(k.convCitaAf,META_CITAS.convCitaAf));
+    setSem('ksem-ca-c',   semaforo(k.convCitaAf,META_CITAS.convCitaAf));
+    setSem('ksem-mat-c',  semaforo(k.convAfMat, META_CITAS.convAfMat));
+    setSem('ksem-am-c',   semaforo(k.convAfMat, META_CITAS.convAfMat));
+    // Semáforo bar global
+    const sb=document.getElementById('semaforo-bar');
+    if(sb)sb.innerHTML=[
+      {l:'No Show',   v:k.noShowRate.toFixed(1)+'%', s:sNS},
+      {l:'Cita→AF',   v:k.convCitaAf.toFixed(1)+'%', s:semaforo(k.convCitaAf,META_CITAS.convCitaAf)},
+      {l:'AF→Mat',    v:k.convAfMat.toFixed(1)+'%',   s:semaforo(k.convAfMat, META_CITAS.convAfMat)},
+      {l:'Conv Final',v:k.convFinal.toFixed(1)+'%',   s:'verde'},
+    ].map(i=>'<div class="sem-badge" style="background:'+SEMCOL[i.s]+'22;color:'+SEMCOL[i.s]+';border:1px solid '+SEMCOL[i.s]+'44">'+SEMIC[i.s]+' '+i.l+': '+i.v+'</div>').join('');
   } else {
-    s('kpi-total-g',(k.total||0).toLocaleString('es-CL'));
-    s('kpi-cont',(k.cont||0).toLocaleString('es-CL'));
-    s('ks-cont',(k.noCont||0).toLocaleString('es-CL')+' no contactados');
-    s('kpi-cita',(k.cita||0).toLocaleString('es-CL'));
-    s('kpi-af',k.af.toLocaleString('es-CL'));
-    s('kpi-mat',k.mat.toLocaleString('es-CL'));
-    s('kpi-contactabilidad',(k.contactabilidad||0).toFixed(1)+'%');
-    s('kpi-cc',(k.convContCita||0).toFixed(1)+'%');
-    s('kpi-ca',(k.convCitaAf||0).toFixed(1)+'%');
-    s('kpi-am',(k.convAfMat||0).toFixed(1)+'%');
-    s('fa-cont',(k.contactabilidad||0).toFixed(1)+'%');
-    s('fa-cita',(k.convContCita||0).toFixed(1)+'%');
-    s('fa-af',(k.convCitaAf||0).toFixed(1)+'%');
-    s('fa-mat',(k.convAfMat||0).toFixed(1)+'%');
-    sem('ksem-cont','kb-cont',k.contactabilidad||0,META_GESTION.contactabilidad,false);
-    sem('ksem-cita','kb-cita',k.convContCita||0,META_GESTION.convContCita,false);
-    sem('ksem-af','kb-af',k.convCitaAf||0,META_GESTION.convCitaAf,false);
-    sem('ksem-mat','kb-mat',k.convAfMat||0,META_GESTION.convAfMat,false);
-    sem('ksem-contactabilidad','kb-contactabilidad',k.contactabilidad||0,META_GESTION.contactabilidad,false);
-    sem('ksem-cc','kb-cc',k.convContCita||0,META_GESTION.convContCita,false);
-    sem('ksem-ca','kb-ca',k.convCitaAf||0,META_GESTION.convCitaAf,false);
-    sem('ksem-am','kb-am',k.convAfMat||0,META_GESTION.convAfMat,false);
-    document.getElementById('semaforo-bar').innerHTML=[
-      {l:'Contactabilidad',val:k.contactabilidad||0,meta:META_GESTION.contactabilidad},
-      {l:'Conv Cont->Cita',val:k.convContCita||0,meta:META_GESTION.convContCita},
-      {l:'Conv Cita->AF',val:k.convCitaAf||0,meta:META_GESTION.convCitaAf},
-      {l:'Conv AF->Mat',val:k.convAfMat||0,meta:META_GESTION.convAfMat},
-    ].map(item=>{const sv=semaforo(item.val,item.meta);return'<div class="sem-item"><div class="sem-dot" style="background:'+SEMCOL[sv]+';box-shadow:0 0 4px '+SEMCOL[sv]+'"></div>'+item.l+': '+SEMIC[sv]+' '+item.val.toFixed(1)+'%</div>';}).join('');
+    // Funnel gestión
+    set('kpi-total-g', k.total.toLocaleString('es-CL'));
+    set('kpi-cont',    k.cont.toLocaleString('es-CL'));
+    set('kpi-cita',    k.cita.toLocaleString('es-CL'));
+    set('kpi-af',      k.af.toLocaleString('es-CL'));
+    set('kpi-mat',     k.mat.toLocaleString('es-CL'));
+    set('fa-cont',     k.contactabilidad.toFixed(1)+'%');
+    set('fa-cita',     k.convContCita.toFixed(1)+'%');
+    set('fa-af',       k.convCitaAf.toFixed(1)+'%');
+    set('fa-mat',      k.convAfMat.toFixed(1)+'%');
+    // Conv cards
+    set('kpi-contactabilidad', k.contactabilidad.toFixed(1)+'%');
+    set('kpi-cc',              k.convContCita.toFixed(1)+'%');
+    set('kpi-ca',              k.convCitaAf.toFixed(1)+'%');
+    set('kpi-am',              k.convAfMat.toFixed(1)+'%');
+    // Bars
+    setBar('kb-cont',          k.contactabilidad);
+    setBar('kb-cita',          k.convContCita);
+    setBar('kb-af',            k.convCitaAf);
+    setBar('kb-mat',           k.convAfMat);
+    setBar('kb-contactabilidad',k.contactabilidad);
+    setBar('kb-cc',             k.convContCita);
+    setBar('kb-ca',             k.convCitaAf);
+    setBar('kb-am',             k.convAfMat);
+    // Semáforos
+    setSem('ksem-cont',            semaforo(k.contactabilidad,META_GESTION.contactabilidad));
+    setSem('ksem-contactabilidad',  semaforo(k.contactabilidad,META_GESTION.contactabilidad));
+    setSem('ksem-cita',            semaforo(k.convContCita,   META_GESTION.convContCita));
+    setSem('ksem-cc',              semaforo(k.convContCita,   META_GESTION.convContCita));
+    setSem('ksem-af',              semaforo(k.convCitaAf,     META_GESTION.convCitaAf));
+    setSem('ksem-ca',              semaforo(k.convCitaAf,     META_GESTION.convCitaAf));
+    setSem('ksem-mat',             semaforo(k.convAfMat,      META_GESTION.convAfMat));
+    setSem('ksem-am',              semaforo(k.convAfMat,      META_GESTION.convAfMat));
+    // Semáforo bar global
+    const sb=document.getElementById('semaforo-bar');
+    if(sb)sb.innerHTML=[
+      {l:'Contactabilidad',v:k.contactabilidad.toFixed(1)+'%',s:semaforo(k.contactabilidad,META_GESTION.contactabilidad)},
+      {l:'Cont→Cita',      v:k.convContCita.toFixed(1)+'%',   s:semaforo(k.convContCita,   META_GESTION.convContCita)},
+      {l:'Cita→AF',        v:k.convCitaAf.toFixed(1)+'%',     s:semaforo(k.convCitaAf,     META_GESTION.convCitaAf)},
+      {l:'AF→Mat',         v:k.convAfMat.toFixed(1)+'%',       s:semaforo(k.convAfMat,      META_GESTION.convAfMat)},
+    ].map(i=>'<div class="sem-badge" style="background:'+SEMCOL[i.s]+'22;color:'+SEMCOL[i.s]+';border:1px solid '+SEMCOL[i.s]+'44">'+SEMIC[i.s]+' '+i.l+': '+i.v+'</div>').join('');
   }
-  document.getElementById('records-badge').textContent=
-    k.total.toLocaleString('es-CL')+' de '+DATA.length.toLocaleString('es-CL')+
-    ' reg. · '+(isCitas?'Modo Citas CRM':'Modo Gestion CC');
 }
 
 /* ============================================================
@@ -1670,45 +1626,47 @@ function renderKpis(data){
    ============================================================ */
 function renderProyecciones(data){
   const pros=computeProyecciones(data);
-  const cols=[C.gray,C.orange,C.green];const icons=['📉','📊','🚀'];
+  const cols=[C.gray,C.orange,C.green];
+  const icons=['📉','📊','🚀'];
   const el=document.getElementById('proy-cards');if(!el)return;
-  el.innerHTML=pros.map((p,i)=>
-    '<div class="proy-card" style="background:'+cols[i]+'12;border:2px solid '+cols[i]+'35">'+
-    '<div class="proy-icon">'+icons[i]+'</div>'+
-    '<div class="proy-tipo" style="color:'+cols[i]+'">'+p.tipo+'</div>'+
-    '<div class="proy-metric"><div class="proy-label">Recorridos proy.</div><div class="proy-val" style="color:'+cols[i]+'">'+p.recorridos.toLocaleString('es-CL')+'</div></div>'+
-    '<div class="proy-metric"><div class="proy-label">Citas proyectadas</div><div class="proy-val" style="color:'+cols[i]+'">'+p.citas.toLocaleString('es-CL')+'</div></div>'+
-    '<div class="proy-metric"><div class="proy-label">Afluencia proyectada</div><div class="proy-val" style="color:'+cols[i]+'">'+p.af.toLocaleString('es-CL')+'</div></div>'+
-    '<div class="proy-metric"><div class="proy-label">Matrículas proyectadas</div><div class="proy-val" style="color:'+cols[i]+'">'+p.mat.toLocaleString('es-CL')+'</div></div>'+
-    '<div class="proy-metric"><div class="proy-label">Conv. Final proyectada</div><div class="proy-val" style="color:'+cols[i]+'">'+p.convFinal.toFixed(2)+'%</div></div>'+
-    '</div>'
+  const lbl=FILE_TYPE==='citas'?'Citas':'Recorridos';
+  el.innerHTML=pros.map((p,i)=>'<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #E5E7EB;border-top:3px solid '+cols[i]+'">'+
+    '<div style="font-size:20px">'+icons[i]+'</div>'+
+    '<div style="font-weight:700;font-size:14px;color:'+cols[i]+';margin:4px 0 10px">'+p.tipo+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+    '<div><div style="font-size:10px;color:#888">'+lbl+'</div><div style="font-weight:700;font-size:16px">'+p.citas.toLocaleString('es-CL')+'</div></div>'+
+    '<div><div style="font-size:10px;color:#888">Afluencia</div><div style="font-weight:700;font-size:16px;color:'+C.purple+'">'+p.af.toLocaleString('es-CL')+'</div></div>'+
+    '<div><div style="font-size:10px;color:#888">Matrículas</div><div style="font-weight:700;font-size:16px;color:'+C.green+'">'+p.mat.toLocaleString('es-CL')+'</div></div>'+
+    '<div><div style="font-size:10px;color:#888">Conv. Final</div><div style="font-weight:700;font-size:16px;color:'+C.orange+'">'+p.convFinal.toFixed(1)+'%</div></div>'+
+    '</div></div>'
   ).join('');
 }
 
 /* ============================================================
-   INSIGHTS
+   CONCLUSIONES / INSIGHTS
    ============================================================ */
 function renderInsights(data){
   const ins=computeInsights(data);
-  const TYPE={hallazgo:{bg:'#EFF6FF',border:'#3B82F6',text:'#1D4ED8',icon:'🔍'},riesgo:{bg:'#FEF2F2',border:'#EF4444',text:'#DC2626',icon:'⚠️'},oportunidad:{bg:'#F0FDF4',border:'#22C55E',text:'#15803D',icon:'✅'},recomendacion:{bg:'#FFFBEB',border:'#F59E0B',text:'#B45309',icon:'💡'}};
   const el=document.getElementById('insights-grid');if(!el)return;
-  el.innerHTML=ins.map(x=>{const cfg=TYPE[x.tipo];return'<div class="insight-card" style="background:'+cfg.bg+';border-left:4px solid '+cfg.border+'"><div class="insight-tipo"><span>'+cfg.icon+'</span><span style="color:'+cfg.text+'">'+x.tipo+'</span></div><div class="insight-titulo">'+x.titulo+'</div><div class="insight-detalle">'+x.detalle+'</div></div>';}).join('');
+  const TICONS={hallazgo:'💡',riesgo:'⚠️',oportunidad:'🎯',recomendacion:'📋'};
+  const TCOLS={hallazgo:C.green,riesgo:C.red,oportunidad:C.orange,recomendacion:'#6B7280'};
+  el.innerHTML=ins.length===0
+    ?'<p style="color:#888;font-size:13px">Carga un archivo para ver conclusiones automáticas.</p>'
+    :ins.map(i=>'<div class="insight-card" style="background:#fff;border:1px solid #E5E7EB;border-left:4px solid '+(TCOLS[i.tipo]||C.orange)+'">'+
+        '<div style="font-size:16px;margin-bottom:6px">'+(TICONS[i.tipo]||'💡')+'</div>'+
+        '<div style="font-weight:700;font-size:12px;color:'+(TCOLS[i.tipo]||C.orange)+'">'+i.titulo+'</div>'+
+        '<div style="font-size:11px;color:#444;margin-top:4px;line-height:1.5">'+i.detalle+'</div>'+
+      '</div>'
+    ).join('');
 }
 
 /* ============================================================
-   RENDER ALL — con debounce para datasets grandes
+   RENDER PRINCIPAL
    ============================================================ */
-function renderAllDebounced(){
-  clearTimeout(_debounceTimer);
-  // 300ms para datasets normales; 600ms si hay más de 200k registros
-  const delay=DATA.length>200000?600:300;
-  _debounceTimer=setTimeout(renderAll,delay);
-}
-
 function renderAll(){
   const data=getFiltered();
-  // ⚠️ REGLA CRÍTICA: calcular AF_DATA por Fecha Matrícula antes de cualquier render
-  AF_DATA = getFilteredAF();
+  // ⚠️ REGLA CRÍTICA UDLA: calcular AF_DATA por Fecha Matrícula antes de cualquier render
+  AF_DATA=getFilteredAF();
   renderKpis(data);
   renderChartAgente(data);
   renderChartSeguimiento(data);
@@ -1717,6 +1675,75 @@ function renderAll(){
   renderChartBase(data);
   renderChartAgenteConv(data);
   renderTableAgentes(data);
+  renderChartCarrera(data);
+  renderTableCarreras(data);
+  renderChartRegimen2(data);
+  renderTableRegimen(data);
+  renderChartBase2(data);
+  renderChartSuborigen(data);
+  renderTableBase(data);
+  renderChartCausa(data);
+  renderTableCausa(data);
+  renderProyecciones(data);
+  renderChartTemporal2(data);
+  renderInsights(data);
+}
+
+function renderAllDebounced(){
+  clearTimeout(_debounceTimer);
+  const delay=DATA.length>200000?600:300;
+  _debounceTimer=setTimeout(renderAll,delay);
+}
+
+/* ============================================================
+   INICIALIZACIÓN — EVENT LISTENERS
+   ============================================================ */
+document.addEventListener('DOMContentLoaded',()=>{
+  // Filtros dropdown
+  FILTER_KEYS.forEach(k=>{
+    const sel=document.getElementById('f-'+k);
+    if(sel)sel.addEventListener('change',()=>{FIL[k]=sel.value;PAG={};if(DATA.length)renderAllDebounced();});
+  });
+  // Rango de fechas
+  ['f-desde','f-hasta'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener('change',()=>{PAG={};if(DATA.length)renderAllDebounced();});
+  });
+  // Limpiar filtros
+  const btnClear=document.getElementById('btn-clear');
+  if(btnClear)btnClear.addEventListener('click',()=>{
+    FIL={};PAG={};AF_DATA=null;
+    FILTER_KEYS.forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value='all';});
+    ['f-desde','f-hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    if(DATA.length)renderAll();
+  });
+  // Drop zone
+  const drop=document.getElementById('drop-zone');
+  if(drop){
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover');});
+    drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));
+    drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)processFile(f);});
+    drop.addEventListener('click',()=>{const fi=document.getElementById('file-input');if(fi)fi.click();});
+  }
+  const fi=document.getElementById('file-input');
+  if(fi)fi.addEventListener('change',e=>{if(e.target.files[0])processFile(e.target.files[0]);e.target.value='';});
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const tab=btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('[data-panel]').forEach(p=>{p.style.display=p.dataset.panel===tab?'block':'none';});
+    });
+  });
+  // Activar primer tab por defecto
+  const firstTab=document.querySelector('.tab-btn');
+  if(firstTab)firstTab.click();
+});
+</script>
+</body>
+</html>
+ntes(data);
   renderChartCarrera(data);
   renderTableCarreras(data);
   renderChartRegimen2(data);
