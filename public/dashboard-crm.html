@@ -1033,23 +1033,38 @@ function computeKpis(data){
   }
 }
 
-/** Pivot por un campo — retorna array con funnel completo */
+/** Pivot por un campo — retorna array con funnel completo.
+ *  ⚠️ REGLA CRÍTICA UDLA: af/mat se atribuyen a Fecha Matrícula.
+ *  Cuando AF_DATA existe (filtro de mes activo), af/mat se cuentan
+ *  desde AF_DATA (filtrado por Fecha Matrícula), NO desde data. */
 function computeByField(data,field,topN=20){
   const p={};
+  // Paso 1: gestión — total / cont / cita desde data (Fecha Gestión)
   data.forEach(row=>{
     const k=getVal(row,field)||'Sin dato';
     if(!p[k])p[k]={total:0,cont:0,cita:0,af:0,mat:0};
     p[k].total++;
     if(isContactado(row))p[k].cont++;
     if(tieneCita(row))   p[k].cita++;
-    if(esAfluencia(row)) p[k].af++;
-    if(esMatricula(row)) p[k].mat++;
+    if(!AF_DATA){          // sin filtro de mes: contar af/mat aquí mismo
+      if(esAfluencia(row)) p[k].af++;
+      if(esMatricula(row)) p[k].mat++;
+    }
   });
+  // Paso 2: af/mat desde AF_DATA cuando existe (Fecha Matrícula)
+  if(AF_DATA){
+    AF_DATA.forEach(row=>{
+      const k=getVal(row,field)||'Sin dato';
+      if(!p[k])p[k]={total:0,cont:0,cita:0,af:0,mat:0};
+      if(esAfluencia(row)) p[k].af++;
+      if(esMatricula(row)) p[k].mat++;
+    });
+  }
   return Object.entries(p)
     .map(([k,v])=>({k,...v,
       contactabilidad:v.total>0?v.cont/v.total*100:0,
       convContCita:   v.cont>0 ?v.cita/v.cont*100 :0,
-      convCitaAf:     v.cita>0 ?v.af/v.cita*100   :0,
+      convCitaAf:     v.total>0?v.af/v.total*100  :0,
       convAfMat:      v.af>0   ?v.mat/v.af*100     :0,
       convFinal:      v.total>0?v.mat/v.total*100  :0,
     }))
@@ -1100,8 +1115,8 @@ function computeTemporal(data){
   };
   const ensure=(lbl)=>{if(lbl&&!p[lbl])p[lbl]={total:0,cont:0,cita:0,af:0,mat:0};};
 
+  // Paso 1: gestión — total/cont/cita desde data (Fecha Gestión)
   data.forEach(row=>{
-    // GESTIÓN → Fecha Gestión/Creación
     const lg=gesLabel(row);
     if(lg){
       ensure(lg);
@@ -1109,16 +1124,21 @@ function computeTemporal(data){
       if(isContactado(row)) p[lg].cont++;
       if(tieneCita(row))    p[lg].cita++;
     }
-    // RESULTADO → Fecha Matrícula
-    if(esAfluencia(row)){
+    // Sin AF_DATA separado: af/mat desde data usando matLabel
+    if(!AF_DATA && esAfluencia(row)){
       const lm=matLabel(row)||lg;
-      if(lm){
-        ensure(lm);
-        p[lm].af++;
-        if(esMatricula(row)) p[lm].mat++;
-      }
+      if(lm){ ensure(lm); p[lm].af++; if(esMatricula(row)) p[lm].mat++; }
     }
   });
+  // Paso 2: af/mat desde AF_DATA cuando existe (REGLA CRÍTICA — Fecha Matrícula)
+  if(AF_DATA){
+    AF_DATA.forEach(row=>{
+      if(esAfluencia(row)){
+        const lm=matLabel(row);
+        if(lm){ ensure(lm); p[lm].af++; if(esMatricula(row)) p[lm].mat++; }
+      }
+    });
+  }
 
   const labels=Object.keys(p).sort((a,b)=>{
     if(byMes){
@@ -1138,21 +1158,21 @@ function computeTemporal(data){
    CAUSA RAÍZ — adaptada a Citas CRM y Gestión CC
    ============================================================ */
 function computeCausaRaiz(data){
+  // ⚠️ REGLA CRÍTICA: noMat (Af→Mat) se analiza sobre AF_DATA cuando existe
+  const afSrc=AF_DATA||data;
   if(FILE_TYPE==='citas'){
-    // Para CITAS: usa "Ultimo Interés Cierre" como causa de No Show
-    // y "Seguimiento Cierre" como causa de no-matrícula post-afluencia
     const noShow={}, noMat={}, segCierre={};
+    // noCita (por qué no hay AF): desde data — gestión side
     data.forEach(row=>{
-      const ic=norm(getVal(row,'interescierre')||'');
-      const seg=norm(getVal(row,'seguimiento')||'');
-      const af=esAfluencia(row), mat=esMatricula(row);
-      // Causas No Show (usando Ultimo Interés Cierre)
+      const af=esAfluencia(row);
       if(!af){noShow[getVal(row,'interescierre')||'Sin dato']=(noShow[getVal(row,'interescierre')||'Sin dato']||0)+1;}
-      // Causas No Matrícula post-afluencia (usando Seguimiento Cierre)
-      if(af&&!mat){const c=getVal(row,'seguimiento')||getVal(row,'interescierre')||'Sin dato'; noMat[c]=(noMat[c]||0)+1;}
-      // Distribución Seguimiento Cierre general
       const s=getVal(row,'seguimiento')||'Sin dato';
       segCierre[s]=(segCierre[s]||0)+1;
+    });
+    // noMat (por qué no hay Mat dado AF): desde afSrc — Fecha Matrícula
+    afSrc.forEach(row=>{
+      const af=esAfluencia(row), mat=esMatricula(row);
+      if(af&&!mat){const c=getVal(row,'seguimiento')||getVal(row,'interescierre')||'Sin dato'; noMat[c]=(noMat[c]||0)+1;}
     });
     const toArr=counts=>{
       const total=Object.values(counts).reduce((s,v)=>s+v,0);
@@ -1160,12 +1180,17 @@ function computeCausaRaiz(data){
     };
     return{noCita:toArr(noShow).slice(0,12), noMat:toArr(noMat).slice(0,10), segCierre:toArr(segCierre).slice(0,12)};
   } else {
-    // GESTIÓN CC: mismo lógico que antes
+    // GESTIÓN CC
     const noCita={},noMat={};
     data.forEach(row=>{
       const seg=norm(getVal(row,'seguimiento')||'');
-      const cita=tieneCita(row), mat=esMatricula(row);
+      const cita=tieneCita(row);
       if(!cita){const c=clasNoCita(seg);noCita[c]=(noCita[c]||0)+1;}
+    });
+    // noMat: desde afSrc (Fecha Matrícula cuando hay filtro de mes)
+    afSrc.forEach(row=>{
+      const seg=norm(getVal(row,'seguimiento')||'');
+      const cita=tieneCita(row), mat=esMatricula(row);
       if(cita&&!mat){const c=clasNoMat(seg);noMat[c]=(noMat[c]||0)+1;}
     });
     const toArr=counts=>{const total=Object.values(counts).reduce((s,v)=>s+v,0);return Object.entries(counts).map(([c,n])=>({c,n,pct:total>0?n/total*100:0})).sort((a,b)=>b.n-a.n);};
@@ -1736,77 +1761,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       document.querySelectorAll('[data-panel]').forEach(p=>{p.style.display=p.dataset.panel===tab?'block':'none';});
     });
   });
-  // Activar primer tab por defecto
   const firstTab=document.querySelector('.tab-btn');
   if(firstTab)firstTab.click();
-});
-</script>
-</body>
-</html>
-ntes(data);
-  renderChartCarrera(data);
-  renderTableCarreras(data);
-  renderChartRegimen2(data);
-  renderTableRegimen(data);
-  renderChartBase2(data);
-  renderChartSuborigen(data);
-  renderTableBase(data);
-  renderChartCausa(data);
-  renderTableCausa(data);
-  renderProyecciones(data);
-  renderChartTemporal2(data);
-  renderInsights(data);
-}
-
-/* ============================================================
-   TOAST
-   ============================================================ */
-function showToast(msg,isError){
-  const t=document.getElementById('toast');if(!t)return;
-  t.textContent=msg;t.style.background=isError?'#DC2626':C.gray;t.style.borderLeftColor=isError?'#FCA5A5':C.orange;
-  t.className='show';clearTimeout(t._timer);t._timer=setTimeout(()=>t.className='',3800);
-}
-
-/* ============================================================
-   INICIALIZACIÓN
-   ============================================================ */
-document.addEventListener('DOMContentLoaded',()=>{
-  // Carga
-  document.getElementById('file-input').addEventListener('change',e=>{
-    const f=e.target.files[0];if(f)processFile(f);e.target.value='';
-  });
-  // Drag & drop
-  const ph=document.getElementById('placeholder');
-  ph.addEventListener('dragover',e=>{e.preventDefault();ph.classList.add('drag-over');});
-  ph.addEventListener('dragleave',()=>ph.classList.remove('drag-over'));
-  ph.addEventListener('drop',e=>{e.preventDefault();ph.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)processFile(f);});
-  window.addEventListener('dragover',e=>e.preventDefault());
-  window.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)processFile(f);});
-  // Filtros dinámicos — con debounce para no bloquear UI en datasets grandes
-  FILTER_KEYS.forEach(k=>{
-    const sel=document.getElementById('f-'+k);
-    if(sel)sel.addEventListener('change',()=>{FIL[k]=sel.value;PAG={};if(DATA.length)renderAllDebounced();});
-  });
-  ['f-desde','f-hasta'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.addEventListener('change',()=>{PAG={};if(DATA.length)renderAllDebounced();});
-  });
-  document.getElementById('btn-clear').addEventListener('click',()=>{
-    FIL={};PAG={};
-    FILTER_KEYS.forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value='all';});
-    ['f-desde','f-hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    if(DATA.length)renderAll();
-  });
-  // Tabs
-  document.querySelectorAll('[data-tab]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.querySelectorAll('[data-tab]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      const t=btn.dataset.tab;
-      document.querySelectorAll('[data-panel]').forEach(p=>p.style.display=p.dataset.panel===t?'block':'none');
-      if(DATA.length)setTimeout(renderAll,30);
-    });
-  });
 });
 </script>
 </body>
